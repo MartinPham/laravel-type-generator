@@ -7,6 +7,7 @@ use MartinPham\TypeGenerator\Definitions\Items\ComponentSchemaItem;
 use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\OneOfSchema;
 use MartinPham\TypeGenerator\Definitions\Items\PropertyItem;
+use MartinPham\TypeGenerator\Definitions\Schemas\PaginatorSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
 use MartinPham\TypeGenerator\Definitions\Schemas\StringSchema;
@@ -163,7 +164,13 @@ class DocBlockHelper
                         items: self::parseTagType($innerType, false, $spec, $classReflection)
                     );
                 }
+            } else if (is_subclass_of($collectionTypeClass, 'Illuminate\Contracts\Pagination\LengthAwarePaginator')) {
+                return new PaginatorSchema(
+                    schema: self::parseTagType($innerType, false, $spec, $classReflection)
+                );
             }
+
+            throw new \Exception("Cannot understand collection type $collectionTypeName ($collectionTypeClass)");
 
         }
 

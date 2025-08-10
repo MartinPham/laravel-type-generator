@@ -19,6 +19,7 @@ use MartinPham\TypeGenerator\Definitions\Items\PathItem;
 use MartinPham\TypeGenerator\Definitions\Items\PropertyItem;
 use MartinPham\TypeGenerator\Definitions\Response;
 use MartinPham\TypeGenerator\Definitions\Items\ResponseItem;
+use MartinPham\TypeGenerator\Definitions\Schemas\PaginatorSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
 use MartinPham\TypeGenerator\Definitions\Spec;
@@ -201,104 +202,15 @@ class GenerateTypeCommand extends Command
 
                             if ($methodTypeName === 'array' || is_subclass_of($methodTypeName, 'Illuminate\Support\Collection')) {
                                 $methodSchemas = $methodDocsSchemas;
+
                                 $this->info("> > > Native method returns list data type => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
                             } else if (is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\LengthAwarePaginator')) {
-                                /*
-                                    'current_page' => $this->currentPage(),
-                                    'data' => $this->items->toArray(),
-                                    'first_page_url' => $this->url(1),
-                                    'from' => $this->firstItem(),
-                                    'last_page' => $this->lastPage(),
-                                    'last_page_url' => $this->url($this->lastPage()),
-                                    'links' => $this->linkCollection()->toArray(),
-                                    'next_page_url' => $this->nextPageUrl(),
-                                    'path' => $this->path(),
-                                    'per_page' => $this->perPage(),
-                                    'prev_page_url' => $this->previousPageUrl(),
-                                    'to' => $this->lastItem(),
-                                    'total' => $this->total()
-                                    */
-
-                                $config = [
-                                    'current_page' => new Schema(
-                                        type: 'integer'
-                                    ),
-                                    'first_page_url' => new Schema(
-                                        type: 'string'
-                                    ),
-                                    'from' => new Schema(
-                                        type: 'integer'
-                                    ),
-                                    'last_page' => new Schema(
-                                        type: 'integer'
-                                    ),
-                                    'last_page_url' => new Schema(
-                                        type: 'string'
-                                    ),
-                                    'links' => new ArraySchema(
-                                        items: (new ObjectSchema())
-                                            ->putPropertyItem(new PropertyItem(
-                                                id: 'url',
-                                                schema: new Schema(
-                                                    type: 'string'
-                                                )
-                                            ))
-                                            ->putPropertyItem(new PropertyItem(
-                                                id: 'label',
-                                                schema: new Schema(
-                                                    type: 'string'
-                                                )
-                                            ))
-                                            ->putPropertyItem(new PropertyItem(
-                                                id: 'active',
-                                                schema: new Schema(
-                                                    type: 'boolean'
-                                                )
-                                            ))
-                                    ),
-                                    'next_page_url' => new Schema(
-                                        type: 'string'
-                                    ),
-                                    'path' => new Schema(
-                                        type: 'string'
-                                    ),
-                                    'per_page' => new Schema(
-                                        type: 'integer'
-                                    ),
-                                    'prev_page_url' => new Schema(
-                                        type: 'string'
-                                    ),
-                                    'to' => new Schema(
-                                        type: 'integer'
-                                    ),
-                                    'total' => new Schema(
-                                        type: 'integer'
-                                    ),
-                                ];
                                 foreach ($methodDocsSchemas as $schema) {
-                                    if ($methodType->allowsNull()) {
-                                        $methodNullable = true;
-                                    }
-                                    $schema = new ObjectSchema(
-                                        properties: [],
-                                        nullable: $methodNullable
+                                    $methodSchemas[] = new PaginatorSchema(
+                                        schema: $schema,
+                                        nullable: $methodType->allowsNull()
                                     );
-
-                                    foreach ($config as $key => $value) {
-                                        $schema->putPropertyItem(new PropertyItem(
-                                            id: $key,
-                                            schema: $value
-                                        ));
-                                    }
-
-                                    $schema->putPropertyItem(new PropertyItem(
-                                        id: 'data',
-                                        schema: $schema
-                                    ));
-
-                                    $methodSchemas[] = $schema;
                                 }
-
 
                                 $this->info("> > > Native method return paginator => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
                             } else if (class_exists($methodTypeName)) {
