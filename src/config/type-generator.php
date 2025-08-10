@@ -23,7 +23,7 @@ return [
     |
     */
     'route_prefixes' => [
-        'api' => [
+        'uri:api' => [
             'output' => resource_path('api/openapi.json'),
             'class' => 'MartinPham\TypeGenerator\Writers\OpenAPI\OpenAPI',
             'options' => [
