@@ -13,7 +13,7 @@ class TypeServiceProvider extends ServiceProvider
             __DIR__ . '/config/type-generator.php' => config_path('type-generator.php'),
             __DIR__ . '/resources/views' => resource_path('views/vendor/type-generator-openapi'),
             __DIR__ . '/routes/routes.php' => base_path('routes/type-generator-openapi.php'),
-        ], 'openapi-generator');
+        ], 'type-generator');
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -35,7 +35,7 @@ class TypeServiceProvider extends ServiceProvider
             $this->loadViewsFrom(__DIR__ . '/resources/views', 'type-generator-openapi');
         }
 
-        
+
     }
 
     public function register(): void
