@@ -10,7 +10,7 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 use MartinPham\TypeGenerator\Commands\GenerateTypeCommand;
-use MartinPham\TypeGenerator\Definitions\OpenAPI;
+use MartinPham\TypeGenerator\Writers\OpenAPI\OpenAPI;
 use PHPUnit\Framework\TestCase;
 use Mockery;
 
@@ -40,27 +40,27 @@ class GenerateTypeCommandTest extends TestCase
     {
         // Mock the config values
         Config::shouldReceive('get')
-            ->with('openapi-generator.path')
+            ->with('type-generator.path')
             ->andReturn('/tmp/openapi.json');
 
         Config::shouldReceive('get')
-            ->with('openapi-generator.openapi')
+            ->with('type-generator.openapi')
             ->andReturn('3.0.2');
 
         Config::shouldReceive('get')
-            ->with('openapi-generator.name')
+            ->with('type-generator.name')
             ->andReturn('Test API');
 
         Config::shouldReceive('get')
-            ->with('openapi-generator.included_route_prefixes', [])
+            ->with('type-generator.included_route_prefixes', [])
             ->andReturn(['api']);
 
         Config::shouldReceive('get')
-            ->with('openapi-generator.ignored_route_names', [])
+            ->with('type-generator.ignored_route_names', [])
             ->andReturn(['api.openapi']);
 
         Config::shouldReceive('get')
-            ->with('openapi-generator.ignored_methods', [])
+            ->with('type-generator.ignored_methods', [])
             ->andReturn(['head', 'options']);
 
         // Mock the File facade
@@ -136,27 +136,27 @@ class GenerateTypeCommandTest extends TestCase
     {
         // Mock the config values
         Config::shouldReceive('get')
-            ->with('openapi-generator.path')
+            ->with('type-generator.path')
             ->andReturn('/tmp/openapi/docs/openapi.json');
 
         Config::shouldReceive('get')
-            ->with('openapi-generator.openapi')
+            ->with('type-generator.openapi')
             ->andReturn('3.0.2');
 
         Config::shouldReceive('get')
-            ->with('openapi-generator.name')
+            ->with('type-generator.name')
             ->andReturn('Test API');
 
         Config::shouldReceive('get')
-            ->with('openapi-generator.included_route_prefixes', [])
+            ->with('type-generator.included_route_prefixes', [])
             ->andReturn(['api']);
 
         Config::shouldReceive('get')
-            ->with('openapi-generator.ignored_route_names', [])
+            ->with('type-generator.ignored_route_names', [])
             ->andReturn(['api.openapi']);
 
         Config::shouldReceive('get')
-            ->with('openapi-generator.ignored_methods', [])
+            ->with('type-generator.ignored_methods', [])
             ->andReturn(['head', 'options']);
 
         // Mock the File facade

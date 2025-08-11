@@ -3,10 +3,10 @@
 namespace Tests\Unit\TypeGenerator\Helpers;
 
 use MartinPham\TypeGenerator\Helpers\ModelHelper;
-use MartinPham\TypeGenerator\Definitions\OpenAPI;
-use MartinPham\TypeGenerator\Definitions\ObjectSchema;
-use MartinPham\TypeGenerator\Definitions\Schema as SchemaDefinition;
-use MartinPham\TypeGenerator\Definitions\StringSchema;
+use MartinPham\TypeGenerator\Writers\OpenAPI\OpenAPI;
+use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\Schema as SchemaDefinition;
+use MartinPham\TypeGenerator\Definitions\Schemas\StringSchema;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema as FacadeSchema;

@@ -3,13 +3,14 @@
 namespace Tests\Unit\TypeGenerator\Helpers;
 
 use MartinPham\TypeGenerator\Helpers\DocBlockHelper;
-use MartinPham\TypeGenerator\Definitions\OpenAPI;
-use MartinPham\TypeGenerator\Definitions\Schema;
-use MartinPham\TypeGenerator\Definitions\StringSchema;
-use MartinPham\TypeGenerator\Definitions\ArraySchema;
-use MartinPham\TypeGenerator\Definitions\ObjectSchema;
-use MartinPham\TypeGenerator\Definitions\OneOfSchema;
-use MartinPham\TypeGenerator\Definitions\RefSchema;
+use MartinPham\TypeGenerator\Writers\OpenAPI\OpenAPI;
+use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
+use MartinPham\TypeGenerator\Definitions\Schemas\StringSchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\ArraySchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\OneOfSchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
+use MartinPham\TypeGenerator\Definitions\Spec;
 use PHPUnit\Framework\TestCase;
 use phpDocumentor\Reflection\DocBlockFactory;
 use phpDocumentor\Reflection\Types\String_;
@@ -25,14 +26,14 @@ use ReflectionClass;
 
 class DocBlockHelperTest extends TestCase
 {
-    private $openApiMock;
+    private $specMock;
     private $classReflectionMock;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->openApiMock = $this->createMock(OpenAPI::class);
+        $this->specMock = $this->createMock(Spec::class);
         $this->classReflectionMock = $this->createMock(ReflectionClass::class);
     }
 
@@ -43,13 +44,13 @@ class DocBlockHelperTest extends TestCase
     {
         $stringType = new String_();
 
-        $schema = DocBlockHelper::parseTagType($stringType, false, $this->openApiMock, $this->classReflectionMock);
+        $schema = DocBlockHelper::parseTagType($stringType, false, $this->specMock, $this->classReflectionMock);
 
         $this->assertInstanceOf(Schema::class, $schema);
         $this->assertEquals('string', $schema->type);
 
         // Test with nullable
-        $schema = DocBlockHelper::parseTagType($stringType, true, $this->openApiMock, $this->classReflectionMock);
+        $schema = DocBlockHelper::parseTagType($stringType, true, $this->specMock, $this->classReflectionMock);
 
         $this->assertInstanceOf(Schema::class, $schema);
         $this->assertEquals('string', $schema->type);
@@ -63,7 +64,7 @@ class DocBlockHelperTest extends TestCase
     {
         $intType = new Integer();
 
-        $schema = DocBlockHelper::parseTagType($intType, false, $this->openApiMock, $this->classReflectionMock);
+        $schema = DocBlockHelper::parseTagType($intType, false, $this->specMock, $this->classReflectionMock);
 
         $this->assertInstanceOf(Schema::class, $schema);
         $this->assertEquals('integer', $schema->type);
@@ -76,7 +77,7 @@ class DocBlockHelperTest extends TestCase
     {
         $floatType = new Float_();
 
-        $schema = DocBlockHelper::parseTagType($floatType, false, $this->openApiMock, $this->classReflectionMock);
+        $schema = DocBlockHelper::parseTagType($floatType, false, $this->specMock, $this->classReflectionMock);
 
         $this->assertInstanceOf(Schema::class, $schema);
         $this->assertEquals('number', $schema->type);
@@ -89,7 +90,7 @@ class DocBlockHelperTest extends TestCase
     {
         $boolType = new Boolean();
 
-        $schema = DocBlockHelper::parseTagType($boolType, false, $this->openApiMock, $this->classReflectionMock);
+        $schema = DocBlockHelper::parseTagType($boolType, false, $this->specMock, $this->classReflectionMock);
 
         $this->assertInstanceOf(Schema::class, $schema);
         $this->assertEquals('boolean', $schema->type);
@@ -106,7 +107,7 @@ class DocBlockHelperTest extends TestCase
         $stringType = new String_();
         $arrayType = new Array_($stringType);
 
-        $schema = DocBlockHelper::parseTagType($arrayType, false, $this->openApiMock, $this->classReflectionMock);
+        $schema = DocBlockHelper::parseTagType($arrayType, false, $this->specMock, $this->classReflectionMock);
 
         $this->assertInstanceOf(ArraySchema::class, $schema);
         $this->assertInstanceOf(Schema::class, $schema->items);

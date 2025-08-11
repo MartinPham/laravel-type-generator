@@ -3,13 +3,14 @@
 namespace Tests\Unit\TypeGenerator\Helpers;
 
 use MartinPham\TypeGenerator\Helpers\ClassHelper;
-use MartinPham\TypeGenerator\Definitions\OpenAPI;
-use MartinPham\TypeGenerator\Definitions\Schema;
-use MartinPham\TypeGenerator\Definitions\StringSchema;
-use MartinPham\TypeGenerator\Definitions\ObjectSchema;
+use MartinPham\TypeGenerator\Writers\OpenAPI\OpenAPI;
+use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
+use MartinPham\TypeGenerator\Definitions\Schemas\StringSchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use DateTime;
+use MartinPham\TypeGenerator\Definitions\Spec;
 
 class ClassHelperTest extends TestCase
 {
@@ -171,9 +172,9 @@ class ClassHelperTest extends TestCase
         $tempFile = tempnam(sys_get_temp_dir(), 'test_');
         file_put_contents($tempFile, $code);
 
-        // Include the file and create a mock OpenAPI spec
+        // Include the file and create a mock spec
         include_once $tempFile;
-        $spec = $this->createMock(OpenAPI::class);
+        $spec = $this->createMock(Spec::class);
 
 
         $schema = ClassHelper::parseClass('ArrayPropsTestClass', $spec, false);
