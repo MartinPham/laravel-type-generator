@@ -292,15 +292,15 @@ class GenerateTypeCommand extends Command
                                             }
                                         }
                                     });
-                                }
-
-                                if (count($properties) > 0) {
-                                    foreach ($properties as $property) {
-                                        $schema->properties[$property] = new Schema(
-                                            type: 'string',
-                                        );
+                                    if (count($properties) > 0) {
+                                        foreach ($properties as $property) {
+                                            $schema->properties[$property] = new Schema(
+                                                type: 'string',
+                                            );
+                                        }
                                     }
                                 }
+
                                 $requestParams[] = $schema;
                                 continue;
                             }
@@ -354,6 +354,18 @@ class GenerateTypeCommand extends Command
 
                     if (in_array($method, ['post', 'put', 'patch'])) {
                         if (count($requestParamProperties) > 0) {
+                            $detectFile = SchemaHelper::containsBinaryString($requestParamProperties);
+
+                            if (!$detectFile) {
+                                $op->putRequestBody(new RequestBodyItem(
+                                    contentType: 'application/json',
+                                    schema: new ObjectSchema(
+                                        properties: $requestParamProperties,
+                                        nullable: $requestParamsNullable
+                                    )
+                                ));
+                            }
+
                             $op->putRequestBody(new RequestBodyItem(
                                 contentType: 'application/x-www-form-urlencoded',
                                 schema: new ObjectSchema(

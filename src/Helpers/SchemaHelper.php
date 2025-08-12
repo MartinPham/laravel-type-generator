@@ -18,4 +18,22 @@ class SchemaHelper {
 
         return new OneOfSchema($schemas, $nullable);
     }
+
+    public static function containsBinaryString($data): bool {
+        if (isset($data->type, $data->format)
+            && $data->type === 'string'
+            && $data->format === 'binary') {
+            return true;
+        }
+
+        if (is_object($data) || is_array($data)) {
+            foreach ($data as $value) {
+                if (self::containsBinaryString($value)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }

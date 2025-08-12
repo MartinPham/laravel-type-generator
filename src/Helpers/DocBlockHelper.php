@@ -2,6 +2,7 @@
 
 namespace MartinPham\TypeGenerator\Helpers;
 
+use Illuminate\Http\UploadedFile;
 use MartinPham\TypeGenerator\Definitions\Schemas\ArraySchema;
 use MartinPham\TypeGenerator\Definitions\Items\ComponentSchemaItem;
 use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
@@ -51,6 +52,7 @@ class DocBlockHelper
             $fqsen = $type->getFqsen();
             $name = $fqsen->getName();
 
+
             $namespace = $classReflection->getNamespaceName();
             $imports = ClassHelper::getClassImports($classReflection);
 
@@ -68,6 +70,13 @@ class DocBlockHelper
             if (is_subclass_of($classFullname, 'DateTimeInterface')) {
                 return new StringSchema(
                     format: "date-time",
+                    nullable: $nullable
+                );
+            }
+
+            if ($classFullname === UploadedFile::class) {
+                return new StringSchema(
+                    format: "binary",
                     nullable: $nullable
                 );
             }
