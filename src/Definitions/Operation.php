@@ -28,4 +28,9 @@ class Operation
         $this->requestBody['content'][$item->contentType]['schema'] = $item->schema;
         return $this;
     }
+    public function setTags(array $tags)
+    {
+        $this->tags = $tags;
+        return $this;
+    }
 }

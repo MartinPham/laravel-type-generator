@@ -29,6 +29,7 @@ use MartinPham\TypeGenerator\Definitions\Spec;
 use MartinPham\TypeGenerator\Helpers\ClassHelper;
 use MartinPham\TypeGenerator\Helpers\DocBlockHelper;
 use MartinPham\TypeGenerator\Helpers\SchemaHelper;
+use phpDocumentor\Reflection\DocBlock\Tags\Generic;
 use phpDocumentor\Reflection\DocBlock\Tags\Param;
 use phpDocumentor\Reflection\DocBlock\Tags\Return_;
 use phpDocumentor\Reflection\DocBlock\Tags\Throws;
@@ -126,9 +127,41 @@ class GenerateTypeCommand extends Command
                         $operationId = $route->action['as'];
                     }
 
+
+                    $methodNullable = false;
+                    $methodDocsSchemas = [];
+                    $methodDocblock = null;
+                    $returnTags = null;
+                    $throwsTags = null;
+                    $classIdTags = [];
+                    $idTags = [];
+                    $classTagTags = [];
+                    $tagTags = [];
+                    $paramTags = [];
+
                     if (is_string($uses)) {
                         $classReflection = new ReflectionClass($route->getController());
                         $methodReflection = $classReflection->getMethod($route->getActionMethod());
+
+
+                        $classDocs = $classReflection->getDocComment();
+
+                        if($classDocs) {
+
+                            $classDocblock = DocBlockFactory::createInstance()->create($classDocs);
+                            $_idsTags = $classDocblock->getTagsByName('id');
+                            /** @var Generic $idTag */
+                            foreach ($_idsTags as $idTag) {
+                                $classIdTags[] = (string)$idTag->getDescription();
+                            }
+
+                            $_tagTags = $classDocblock->getTagsByName('tag');
+                            /** @var Generic $idTag */
+                            foreach ($_tagTags as $tagTag) {
+                                $classTagTags[] = (string)$tagTag->getDescription();
+                            }
+
+                        }
 
                         if (!isset($route->action['as'])) {
                             $usesParts = explode('@', $uses);
@@ -150,14 +183,8 @@ class GenerateTypeCommand extends Command
                     $methodTypes = $methodType instanceof ReflectionUnionType ? $methodType->getTypes() : [$methodType];
 
 
-
-                    $methodNullable = false;
-                    $methodDocsSchemas = [];
                     $methodDocs = $methodReflection->getDocComment();
-                    $methodDocblock = null;
-                    $returnTags = null;
-                    $throwsTags = null;
-                    $paramTags = [];
+
 
                     if ($methodDocs) {
                         $methodDocblock = DocBlockFactory::createInstance()->create($methodDocs);
@@ -178,7 +205,33 @@ class GenerateTypeCommand extends Command
                             $paramTags[$paramTag->getVariableName()] = $paramTag;
                         }
 
+                        $_idsTags = $methodDocblock->getTagsByName('id');
+                        /** @var Generic $idTag */
+                        foreach ($_idsTags as $idTag) {
+                            $idTags[] = (string)$idTag->getDescription();
+                        }
+
+                        $_tagTags = $methodDocblock->getTagsByName('tag');
+                        /** @var Generic $idTag */
+                        foreach ($_tagTags as $tagTag) {
+                            $tagTags[] = (string)$tagTag->getDescription();
+                        }
+
+
                         $throwsTags = $methodDocblock->getTagsByName('throws');
+                    }
+
+                    if (count($idTags) > 0) {
+                        $opId = $idTags[0];
+                        if (count($classIdTags) > 0) {
+                            $opId = $classIdTags[0] . '.' . $opId;
+                        }
+                        $op->operationId = $opId;
+                    }
+
+                    $tagTags = array_merge($classTagTags, $tagTags);
+                    if (count($tagTags) > 0) {
+                        $op->setTags($tagTags);
                     }
 
                     $parameters = [];
@@ -263,6 +316,7 @@ class GenerateTypeCommand extends Command
                                         }
                                     }
                                 }
+                                continue;
                             }
                         }
 

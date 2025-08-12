@@ -10,6 +10,7 @@ class OpenAPI implements Writer
     public string $openapi;
     public Info $info;
     public array $paths;
+    public array $servers;
     public array $components;
 
     public function __construct(
@@ -22,6 +23,11 @@ class OpenAPI implements Writer
             version: $options['version']
         );
         $this->paths = $spec->paths ?? [];
+        $this->servers = [
+            [
+                'url' => config('app.url'),
+            ]
+        ];
         $this->components = $spec->components ?? [];
     }
 
