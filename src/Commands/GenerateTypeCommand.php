@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Console\Command;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route as FacadeRoute;
@@ -32,6 +33,8 @@ use phpDocumentor\Reflection\DocBlock\Tags\Param;
 use phpDocumentor\Reflection\DocBlock\Tags\Return_;
 use phpDocumentor\Reflection\DocBlock\Tags\Throws;
 use phpDocumentor\Reflection\DocBlockFactory;
+use phpDocumentor\Reflection\PseudoTypes\ArrayShape;
+use phpDocumentor\Reflection\Types\Collection;
 use ReflectionClass;
 use ReflectionFunction;
 use ReflectionUnionType;
@@ -179,8 +182,8 @@ class GenerateTypeCommand extends Command
                     }
 
                     $parameters = [];
-                    $requestBody = [];
-                    $requestBodyNullable = false;
+                    $requestParams = [];
+                    $requestParamsNullable = false;
 
                     /** @var \ReflectionParameter $parameters */
                     foreach($route->signatureParameters() as $parameter) {
@@ -204,7 +207,7 @@ class GenerateTypeCommand extends Command
                             if (is_subclass_of($typeClass, FormRequest::class)) {
                                 $schema = ClassHelper::parseClass($typeClass, $spec, $type->allowsNull(), true);
 
-                                $requestBodyNullable = $type->allowsNull();
+                                $requestParamsNullable = $type->allowsNull();
 
                                 if (count($schema->properties) === 0) {
 //                                    $requestInstance = new $orgType;
@@ -245,8 +248,21 @@ class GenerateTypeCommand extends Command
                                         );
                                     }
                                 }
-                                $requestBody[] = $schema;
+                                $requestParams[] = $schema;
                                 continue;
+                            }
+                            else if ($typeClass === Request::class) {
+                                if($paramTag !== null) {
+                                    $paramTagType = $paramTag->getType();
+                                    if ($paramTagType instanceof Collection) {
+                                        $paramTagValueType = $paramTagType->getValueType();
+
+
+                                        if ($paramTagValueType instanceof ArrayShape) {
+                                            $requestParams[] = DocBlockHelper::parseTagType($paramTagValueType, $requestParamsNullable, $spec, $classReflection);
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -260,7 +276,6 @@ class GenerateTypeCommand extends Command
                             description: $paramTag?->getDescription() ?? ''
                         );
                     }
-
 
 //                    $parameters = array_map(function ($parameter) use ($paramTags) {
 //                        /** @var Param|null $paramTag */
@@ -277,24 +292,36 @@ class GenerateTypeCommand extends Command
 //                        );
 //                    }, $route->parameterNames());
 
+
+                    $requestParamProperties = [];
+                    foreach($requestParams as $body) {
+                        $requestParamProperties = array_merge($requestParamProperties, $body->properties);
+                    }
+
+                    if (in_array($method, ['post', 'put', 'patch'])) {
+                        if (count($requestParamProperties) > 0) {
+                            $op->putRequestBody(new RequestBodyItem(
+                                contentType: 'application/x-www-form-urlencoded',
+                                schema: new ObjectSchema(
+                                    properties: $requestParamProperties,
+                                    nullable: $requestParamsNullable
+                                )
+                            ));
+                        }
+                    } else {
+                        foreach ($requestParamProperties as $property => $schema) {
+                            $parameters[] = new Parameter(
+                                name: $property,
+                                in: 'query',
+                                required: true,
+                                schema: $schema,
+                                description: ''
+                            );
+                        }
+                    }
+
+
                     $op->putParameters($parameters);
-
-                    $requestBodyProperties = [];
-                    foreach($requestBody as $body) {
-                        $requestBodyProperties = array_merge($requestBodyProperties, $body->properties);
-                    }
-
-                    if (count($requestBodyProperties) > 0) {
-                        $op->putRequestBody(new RequestBodyItem(
-                            contentType: 'application/x-www-form-urlencoded',
-                            schema: new ObjectSchema(
-                                properties: $requestBodyProperties,
-                                nullable: $requestBodyNullable
-                            )
-                        ));
-                    }
-
-
 
                     $this->info("> > > Recorded " . count($parameters) . " parameter(s)");
 
