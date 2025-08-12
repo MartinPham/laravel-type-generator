@@ -8,22 +8,33 @@ use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
 use MartinPham\TypeGenerator\Definitions\Schemas\StringSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
+use phpDocumentor\Reflection\DocBlock\Tags\Property;
 use phpDocumentor\Reflection\DocBlock\Tags\Var_;
 use phpDocumentor\Reflection\DocBlockFactory;
+use PhpParser\Node;
+use PhpParser\NodeTraverser;
+use PhpParser\NodeVisitor;
+use PhpParser\NodeVisitorAbstract;
+use PhpParser\ParserFactory;
 use ReflectionClass;
 use ReflectionProperty;
 use ReflectionUnionType;
 
 class ClassHelper
 {
-    public static function getClassImports(ReflectionClass $reflection): array
+    public static function getClassFileContents(ReflectionClass $reflection): string
     {
         $filename = $reflection->getFileName();
         if (!$filename || !file_exists($filename)) {
-            return [];
+            return "";
         }
 
-        $contents = file_get_contents($filename);
+        return file_get_contents($filename);
+    }
+
+    public static function getClassImports(ReflectionClass $reflection): array
+    {
+        $contents = self::getClassFileContents($reflection);
 
         // Only parse up to the class/interface/trait definition
         $classPos = strpos($contents, 'class');
@@ -86,8 +97,24 @@ class ClassHelper
         return $mapped;
     }
 
+    public static function readClass(string $classFullname, NodeVisitor $visitor)
+    {
+        $classReflection = new ReflectionClass($classFullname);
 
-    public static function parseClass(string $classFullname, $spec, $nullable)
+
+        $contents = self::getClassFileContents($classReflection);
+
+        $parser = (new ParserFactory())->createForNewestSupportedVersion();
+        $ast = $parser->parse($contents);
+        $traverser = new NodeTraverser();
+        $traverser->addVisitor($visitor);
+        $traverser->traverse($ast);
+
+        return $visitor->results;
+    }
+
+
+    public static function parseClass(string $classFullname, $spec, $nullable, $onlyFromDocblock = false)
     {
         if (is_subclass_of($classFullname, EloquentModel::class)) {
             return ModelHelper::parseModel($classFullname, $spec, $nullable);
@@ -99,110 +126,133 @@ class ClassHelper
         }
 
 
-        $classReflection = new ReflectionClass($classFullname);
-        $publicProperties = $classReflection->getProperties(ReflectionProperty::IS_PUBLIC);
-
-
         $properties = [];
+        $docblockProperties = [];
 
+        $classReflection = new ReflectionClass($classFullname);
 
-        foreach ($publicProperties as $property) {
-            $propertyName = $property->getName();
-            $propertyType = $property->getType();
+        $classDocs = $classReflection->getDocComment();
+        if ($classDocs) {
+            $classDocblock = DocBlockFactory::createInstance()->create($classDocs);
+            $propertyTags = $classDocblock->getTagsByName('property');
 
-            if ($propertyType === null) {
-                continue;
+            /** @var Property $propertyTag */
+            foreach ($propertyTags as $propertyTag) {
+                $docblockProperties[$propertyTag->getVariableName()] = DocBlockHelper::parseTagType($propertyTag->getType(), $nullable, $spec, $classReflection);
             }
-
-            $propertyNullable = $propertyType->allowsNull();
-            $propertyTypes = $propertyType instanceof ReflectionUnionType ? $propertyType->getTypes() : [$propertyType];
-
-            $propertySchemas = [];
-
-            /** @var \ReflectionNamedType|null $propertyType */
-            foreach ($propertyTypes as $propertyType) {
-                if ($propertyType !== null) {
-                    $propertyTypeName = $propertyType->getName();
-
-                    if ($propertyTypeName === 'null') {
-                        $propertyNullable = true;
-                    } else if ($propertyTypeName === 'array') {
-                        $propertyDocs = $property->getDocComment();
-
-                        if ($propertyDocs) {
-                            $propertyDocblock = DocBlockFactory::createInstance()->create($propertyDocs);
-                            $varTags = $propertyDocblock->getTagsByName('var');
-
-                            /** @var Var_ $varTag */
-                            foreach ($varTags as $varTag) {
-                                $propertySchemas[] = DocBlockHelper::parseTagType($varTag->getType(), false, $spec, $classReflection);
-                            }
-                        }
-                    } else if ($propertyTypeName === 'bool') {
-                        $propertySchemas[] = new Schema(
-                            type: 'boolean'
-                        );
-                    } else if ($propertyTypeName === 'int') {
-                        $propertySchemas[] = new Schema(
-                            type: 'integer'
-                        );
-                    } else if ($propertyTypeName === 'float') {
-                        $propertySchemas[] = new Schema(
-                            type: 'number'
-                        );
-                    } else if ($propertyTypeName === 'string') {
-                        $propertySchemas[] = new Schema(
-                            type: 'string'
-                        );
-                    } else if (is_subclass_of($propertyTypeName, 'DateTimeInterface')) {
-                        $propertySchemas[] = new StringSchema(
-                            format: 'date-time'
-                        );
-                    } else {
-                        $name = $propertyTypeName;
-                        $namespace = $classReflection->getNamespaceName();
-                        $imports = ClassHelper::getClassImports($classReflection);
-
-                        $classFullname = $propertyTypeName;
-
-                        if (isset($imports[$name])) {
-                            $classFullname = $imports[$name];
-                        } else if (!class_exists($name)) {
-                            if (!class_exists($namespace . '\\' . $name)) {
-                                throw new \Exception("Cannot locate class $name");
-                            }
-                            $classFullname = $namespace . '\\' . $name;
-                        }
-
-                        if (is_subclass_of($classFullname, 'DateTimeInterface')) {
-                            return new StringSchema(
-                                format: "date-time",
-                                nullable: $nullable
-                            );
-                        }
-
-                        $spec->putComponentSchema($name, function () use ($name, $classFullname, $spec, $nullable) {
-                            return new ComponentSchemaItem(
-                                id: $name,
-                                schema: ClassHelper::parseClass((string) $classFullname, $spec, $nullable)
-                            );
-                        });
+        }
 
 
-                        $propertySchemas[] = new RefSchema(
-                            ref: $name
-                        );
-                    }
+        if (!$onlyFromDocblock) {
+            $publicProperties = $classReflection->getProperties(ReflectionProperty::IS_PUBLIC);
+
+            foreach ($publicProperties as $property) {
+                $propertyName = $property->getName();
+                $propertyType = $property->getType();
+
+                if ($propertyType === null) {
+                    continue;
                 }
 
-            }
+                $propertyNullable = $propertyType->allowsNull();
+                $propertyTypes = $propertyType instanceof ReflectionUnionType ? $propertyType->getTypes() : [$propertyType];
 
-            if (count($propertySchemas) === 0) {
-                throw new \Exception("Cannot undestand class structure - $classFullname::$propertyName");
-            }
+                $propertySchemas = [];
 
-            $properties[$propertyName] = SchemaHelper::mergeSchemas($propertySchemas, $propertyNullable);
+                /** @var \ReflectionNamedType|null $propertyType */
+                foreach ($propertyTypes as $propertyType) {
+                    if ($propertyType !== null) {
+                        $propertyTypeName = $propertyType->getName();
+
+                        if ($propertyTypeName === 'null') {
+                            $propertyNullable = true;
+                        } else if ($propertyTypeName === 'array') {
+                            $propertyDocs = $property->getDocComment();
+
+                            if ($propertyDocs) {
+                                $propertyDocblock = DocBlockFactory::createInstance()->create($propertyDocs);
+                                $varTags = $propertyDocblock->getTagsByName('var');
+
+                                /** @var Var_ $varTag */
+                                foreach ($varTags as $varTag) {
+                                    $propertySchemas[] = DocBlockHelper::parseTagType($varTag->getType(), false, $spec, $classReflection);
+                                }
+                            }
+                        } else if ($propertyTypeName === 'bool') {
+                            $propertySchemas[] = new Schema(
+                                type: 'boolean'
+                            );
+                        } else if ($propertyTypeName === 'int') {
+                            $propertySchemas[] = new Schema(
+                                type: 'integer'
+                            );
+                        } else if ($propertyTypeName === 'float') {
+                            $propertySchemas[] = new Schema(
+                                type: 'number'
+                            );
+                        } else if ($propertyTypeName === 'string') {
+                            $propertySchemas[] = new Schema(
+                                type: 'string'
+                            );
+                        } else if (is_subclass_of($propertyTypeName, 'DateTimeInterface')) {
+                            $propertySchemas[] = new StringSchema(
+                                format: 'date-time'
+                            );
+                        } else {
+                            $name = $propertyTypeName;
+                            $namespace = $classReflection->getNamespaceName();
+                            $imports = ClassHelper::getClassImports($classReflection);
+
+                            $classFullname = $propertyTypeName;
+
+                            if (isset($imports[$name])) {
+                                $classFullname = $imports[$name];
+                            } else if (!class_exists($name)) {
+                                if (!class_exists($namespace . '\\' . $name)) {
+                                    throw new \Exception("Cannot locate class $name");
+                                }
+                                $classFullname = $namespace . '\\' . $name;
+                            }
+
+                            if (is_subclass_of($classFullname, 'DateTimeInterface')) {
+                                return new StringSchema(
+                                    format: "date-time",
+                                    nullable: $nullable
+                                );
+                            }
+
+                            $spec->putComponentSchema($name, function () use ($name, $classFullname, $spec, $nullable) {
+                                return new ComponentSchemaItem(
+                                    id: $name,
+                                    schema: ClassHelper::parseClass((string) $classFullname, $spec, $nullable)
+                                );
+                            });
+
+
+                            $propertySchemas[] = new RefSchema(
+                                ref: $name
+                            );
+                        }
+                    }
+
+                }
+
+                if (count($propertySchemas) === 0) {
+                    if (isset($docblockProperties[$propertyName])) {
+                        $properties[$propertyName] = $docblockProperties[$propertyName];
+                        unset($docblockProperties[$propertyName]);
+                    } else {
+                        throw new \Exception("Cannot undestand class structure - $classFullname::$propertyName");
+                    }
+
+                } else {
+                    $properties[$propertyName] = SchemaHelper::mergeSchemas($propertySchemas, $propertyNullable);
+                }
+            }
         }
+
+        $properties = array_merge($properties, $docblockProperties);
+
 
         return new ObjectSchema(
             properties: $properties,

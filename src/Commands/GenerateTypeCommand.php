@@ -5,9 +5,11 @@ namespace MartinPham\TypeGenerator\Commands;
 use Closure;
 use Illuminate\Console\Command;
 
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route as FacadeRoute;
+use MartinPham\TypeGenerator\Definitions\Items\RequestBodyItem;
 use MartinPham\TypeGenerator\Definitions\Schemas\ArraySchema;
 use MartinPham\TypeGenerator\Definitions\Items\ContentItem;
 use MartinPham\TypeGenerator\Definitions\Items\ComponentSchemaItem;
@@ -33,6 +35,14 @@ use phpDocumentor\Reflection\DocBlockFactory;
 use ReflectionClass;
 use ReflectionFunction;
 use ReflectionUnionType;
+
+use PhpParser\Error;
+use PhpParser\Node;
+use PhpParser\ParserFactory;
+use PhpParser\NodeTraverser;
+use PhpParser\NodeVisitorAbstract;
+
+
 
 class GenerateTypeCommand extends Command
 {
@@ -84,6 +94,8 @@ class GenerateTypeCommand extends Command
 
         foreach ($specs as $prefix => $config) {
             $spec = &$specs[$prefix]['spec'];
+
+            /** @var Route $route */
             foreach ($specs[$prefix]['routes'] as $route) {
                 $uri = '/' . $route->uri;
 
@@ -166,12 +178,80 @@ class GenerateTypeCommand extends Command
                         $throwsTags = $methodDocblock->getTagsByName('throws');
                     }
 
-                    $parameters = array_map(function ($parameter) use ($paramTags) {
-                        /** @var Param|null $paramTag */
-                        $paramTag = $paramTags[$parameter] ?? null;
+                    $parameters = [];
+                    $requestBody = [];
+                    $requestBodyNullable = false;
 
-                        return new Parameter(
-                            name: $parameter,
+                    /** @var \ReflectionParameter $parameters */
+                    foreach($route->signatureParameters() as $parameter) {
+                        /** @var Param|null $paramTag */
+                        $paramTag = $paramTags[$parameter->name] ?? null;
+
+                        $type = $parameter->getType();
+                        if ($type === null) {
+                            $type = $paramTag?->getType() ?? null;
+
+                            if ($type === null) {
+                                $type = 'string';
+                            }
+
+                            $type = (string) $type;
+                        }
+
+                        if ($type instanceof \ReflectionNamedType) {
+                            $typeClass = $type->getName() ?? null;
+
+                            if (is_subclass_of($typeClass, FormRequest::class)) {
+                                $schema = ClassHelper::parseClass($typeClass, $spec, $type->allowsNull(), true);
+
+                                $requestBodyNullable = $type->allowsNull();
+
+                                if (count($schema->properties) === 0) {
+//                                    $requestInstance = new $orgType;
+//                                    $rules = $requestInstance->rules();
+//
+//                                    foreach ($rules as $field => $rule) {
+//                                        $schema->properties[$field] = new Schema(
+//                                            type: 'string',
+//                                        );
+//                                    }
+
+                                    $properties = ClassHelper::readClass($typeClass, new class extends NodeVisitorAbstract {
+                                        public array $results = [];
+
+                                        public function enterNode(Node $node)
+                                        {
+                                            // Look for the rules() method
+                                            if ($node instanceof Node\Stmt\ClassMethod && $node->name->toString() === 'rules') {
+                                                // Look inside method statements
+                                                foreach ($node->stmts as $stmt) {
+                                                    if ($stmt instanceof Node\Stmt\Return_ && $stmt->expr instanceof Node\Expr\Array_) {
+                                                        foreach ($stmt->expr->items as $item) {
+                                                            if ($item->key instanceof Node\Scalar\String_) {
+                                                                $this->results[] = $item->key->value;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    });
+                                }
+
+                                if (count($properties) > 0) {
+                                    foreach ($properties as $property) {
+                                        $schema->properties[$property] = new Schema(
+                                            type: 'string',
+                                        );
+                                    }
+                                }
+                                $requestBody[] = $schema;
+                                continue;
+                            }
+                        }
+
+                        $parameters[] = new Parameter(
+                            name: $parameter->name,
                             in: 'path',
                             required: true,
                             schema: new Schema(
@@ -179,9 +259,41 @@ class GenerateTypeCommand extends Command
                             ),
                             description: $paramTag?->getDescription() ?? ''
                         );
-                    }, $route->parameterNames());
+                    }
 
-                    $op->parameters = $parameters;
+
+//                    $parameters = array_map(function ($parameter) use ($paramTags) {
+//                        /** @var Param|null $paramTag */
+//                        $paramTag = $paramTags[$parameter] ?? null;
+//
+//                        return new Parameter(
+//                            name: $parameter,
+//                            in: 'path',
+//                            required: true,
+//                            schema: new Schema(
+//                                type: 'string'
+//                            ),
+//                            description: $paramTag?->getDescription() ?? ''
+//                        );
+//                    }, $route->parameterNames());
+
+                    $op->putParameters($parameters);
+
+                    $requestBodyProperties = [];
+                    foreach($requestBody as $body) {
+                        $requestBodyProperties = array_merge($requestBodyProperties, $body->properties);
+                    }
+
+                    if (count($requestBodyProperties) > 0) {
+                        $op->putRequestBody(new RequestBodyItem(
+                            contentType: 'application/x-www-form-urlencoded',
+                            schema: new ObjectSchema(
+                                properties: $requestBodyProperties,
+                                nullable: $requestBodyNullable
+                            )
+                        ));
+                    }
+
 
 
                     $this->info("> > > Recorded " . count($parameters) . " parameter(s)");
