@@ -2,7 +2,6 @@
 
 namespace MartinPham\TypeGenerator\Definitions\Schemas;
 
-use Illuminate\Support\Arr;
 use MartinPham\TypeGenerator\Definitions\Items\PropertyItem;
 
 class PaginatorSchema

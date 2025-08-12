@@ -174,8 +174,21 @@ class DocBlockHelper
                     );
                 }
             } else if (is_subclass_of($collectionTypeClass, 'Illuminate\Contracts\Pagination\LengthAwarePaginator')) {
-                return new PaginatorSchema(
-                    schema: self::parseTagType($innerType, false, $spec, $classReflection)
+                /** @var Object_ $innerType */
+                $schemaName = $innerType->getFqsen()->getName() . '_LengthAwarePaginator';
+                $spec->putComponentSchema($schemaName, function () use ($schemaName, $innerType, $spec, $classReflection) {
+                    return new ComponentSchemaItem(
+                        id: $schemaName,
+                        schema: new PaginatorSchema(
+                            schema: self::parseTagType($innerType, false, $spec, $classReflection)
+                        )
+                    );
+                });
+
+
+                return new RefSchema(
+                    ref: $schemaName,
+                    nullable: false
                 );
             }
 

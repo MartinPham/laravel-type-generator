@@ -387,10 +387,6 @@ class GenerateTypeCommand extends Command
                     }
 
 
-                    $op->putParameters($parameters);
-
-                    $this->info("> > > Recorded " . count($parameters) . " parameter(s)");
-
                     $this->info("> > > Collected " . count($methodDocsSchemas) . " method return(s) from DocBlock");
 
                     $methodSchemas = [];
@@ -410,12 +406,18 @@ class GenerateTypeCommand extends Command
 
                                 $this->info("> > > Native method returns list data type => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
                             } else if (is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\LengthAwarePaginator')) {
-                                foreach ($methodDocsSchemas as $schema) {
-                                    $methodSchemas[] = new PaginatorSchema(
-                                        schema: $schema,
-                                        nullable: $methodType->allowsNull()
-                                    );
-                                }
+                                $methodSchemas = $methodDocsSchemas;
+
+
+                                $parameters[] = new Parameter(
+                                    name: 'page',
+                                    in: 'query',
+                                    required: true,
+                                    schema: new Schema(
+                                        type: 'integer'
+                                    ),
+                                    description: ''
+                                );
 
                                 $this->info("> > > Native method return paginator => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
                             } else if (class_exists($methodTypeName)) {
@@ -450,6 +452,12 @@ class GenerateTypeCommand extends Command
                         $this->warn("> > > > Nothing can be found for route method return type {$route->getName()}-{$route->getActionMethod()}");
                         continue;
                     }
+
+
+                    $op->putParameters($parameters);
+
+                    $this->info("> > > Recorded " . count($parameters) . " parameter(s)");
+
 
                     $methodSchema =  SchemaHelper::mergeSchemas($methodSchemas, $methodNullable);
                     $contentItem = new ContentItem(
