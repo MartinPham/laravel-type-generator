@@ -35,8 +35,10 @@ use phpDocumentor\Reflection\DocBlock\Tags\Param;
 use phpDocumentor\Reflection\DocBlock\Tags\Return_;
 use phpDocumentor\Reflection\DocBlock\Tags\Throws;
 use phpDocumentor\Reflection\DocBlockFactory;
+use phpDocumentor\Reflection\Fqsen;
 use phpDocumentor\Reflection\PseudoTypes\ArrayShape;
 use phpDocumentor\Reflection\Types\Collection;
+use phpDocumentor\Reflection\Types\Object_;
 use ReflectionClass;
 use ReflectionFunction;
 use ReflectionUnionType;
@@ -388,6 +390,7 @@ class GenerateTypeCommand extends Command
                         } else {
                             $methodTypeName = $methodType->getName();
 
+
                             if ($methodTypeName === 'array' || is_subclass_of($methodTypeName, 'Illuminate\Support\Collection')) {
                                 $methodSchemas = $methodDocsSchemas;
 
@@ -401,9 +404,12 @@ class GenerateTypeCommand extends Command
 
                                 $this->info("> > > Native method return paginator => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
                             } else if (
-                                is_subclass_of($methodTypeName, 'Illuminate\Http\Resources\Json\ResourceCollection')
+                                is_subclass_of($methodTypeName, 'TiMacDonald\JsonApi\JsonApiResource')
+                                || is_subclass_of($methodTypeName, 'TiMacDonald\JsonApi\JsonApiResourceCollection')
+                                || is_subclass_of($methodTypeName, 'Illuminate\Http\Resources\Json\ResourceCollection')
                                 || is_subclass_of($methodTypeName, 'Illuminate\Http\Resources\Json\JsonResource')
                             ) {
+
                                 $methodAllowNull = $methodType->allowsNull();
                                 if ($methodAllowNull) {
                                     $methodNullable = true;
@@ -413,36 +419,34 @@ class GenerateTypeCommand extends Command
                                 $name = end($parts);
                                 $classFullname = ClassHelper::getClassFullname($name, $classReflection);
 
+                                if (
+                                    $classFullname === 'TiMacDonald\JsonApi\JsonApiResource'
+                                    || $classFullname === 'TiMacDonald\JsonApi\JsonApiResourceCollection'
+                                ) {
+                                    $methodSchemas = array_map(function ($schema) {
+                                        return new ObjectSchema(
+                                            properties: [
+                                                'data' => $schema
+                                            ]
+                                        );
+                                    }, $methodDocsSchemas);
+
+
+                                    $this->info("> > > Native method return generic json api resource => Applied " . count($methodSchemas) . " method return(s) with filters from DocBlock");
+                                } else {
 
                                     $resourceClass = new \ReflectionClass($classFullname);
-                                    $toArrayMethod = $resourceClass->getMethod('toArray');
-                                    $toArrayMethodDocs = $toArrayMethod->getDocComment();
-                                    if ($toArrayMethodDocs) {
-                                        $toArrayMethodDocBlock = DocBlockFactory::createInstance()->create($toArrayMethodDocs);
-                                        $returnTags = $toArrayMethodDocBlock->getTagsByName('return');
 
-                                        /** @var Return_ $propertyTag */
-                                        foreach ($returnTags as $returnTag) {
+                                    $schema = DocBlockHelper::parseTagType(new Object_(new Fqsen('\\' . $name)), $methodAllowNull, $resourceClass, $spec);
 
-                                            $spec->putComponentSchema($name, function () use ($name, $classFullname, $spec, $methodNullable, $returnTag, $resourceClass) {
-                                                return new ComponentSchemaItem(
-                                                    id: $name,
-                                                    schema: DocBlockHelper::parseTagType($returnTag->getType(), $methodNullable, $resourceClass, $spec)
-                                                );
-                                            });
-
-                                            $methodSchemas[] = new ObjectSchema(
-                                                properties: [
-                                                    'data' => new RefSchema(
-                                                        ref: $name,
-                                                        nullable: $methodNullable
-                                                    )
-                                                ]
-                                            );
-                                        }
-                                    }
+                                    $methodSchemas[] = new ObjectSchema(
+                                        properties: [
+                                            'data' => $schema
+                                        ]
+                                    );
 
                                     $this->info("> > > Native method return resource => try to parse the resource");
+                                }
 
                             } else if (class_exists($methodTypeName)) {
                                 $methodAllowNull = $methodType->allowsNull();
@@ -458,8 +462,14 @@ class GenerateTypeCommand extends Command
                                     $classFullname === 'Illuminate\Http\Resources\Json\ResourceCollection'
                                     || $classFullname === 'Illuminate\Http\Resources\Json\JsonResource'
                                 ) {
-                                    $methodSchemas = $methodDocsSchemas;
-                                    $this->info("> > > Native method return generic resource => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
+                                    $methodSchemas = array_map(function ($schema) {
+                                        return new ObjectSchema(
+                                            properties: [
+                                                'data' => $schema
+                                            ]
+                                        );
+                                    }, $methodDocsSchemas);
+                                    $this->info("> > > Native method return generic resource => Applied " . count($methodSchemas) . " method return(s) with filters from DocBlock");
                                 } else {
 
                                     $spec->putComponentSchema($className, function () use ($className, $methodTypeName, $spec, $methodAllowNull) {

@@ -103,10 +103,10 @@ class ModelHelper
 
                 foreach ($methodReturnNodes as $return) {
                     if ($methodName === 'getCasts' || $methodName === 'casts') {
-                        $casts = array_merge(CodeHelper::extractAssocArrayValues($return->expr));
+                        $casts = array_merge($casts, CodeHelper::extractAssocArrayValues($return->expr));
                     }
                     else if ($methodName === 'getHidden' || $methodName === 'hidden') {
-                        $casts = array_merge(CodeHelper::extractArrayValues($return->expr));
+                        $hidden = array_merge($hidden, CodeHelper::extractArrayValues($return->expr));
                     }
                     else if ($methodName === 'getTable') {
                         $table = CodeHelper::extractStringValue($return->expr);

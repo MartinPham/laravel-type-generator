@@ -18,7 +18,9 @@ use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
 use MartinPham\TypeGenerator\Definitions\Schemas\StringSchema;
 use MartinPham\TypeGenerator\Definitions\Spec;
+use phpDocumentor\Reflection\DocBlock\Tags\Mixin;
 use phpDocumentor\Reflection\DocBlock\Tags\Property;
+use phpDocumentor\Reflection\DocBlock\Tags\PropertyRead;
 use phpDocumentor\Reflection\DocBlock\Tags\Return_;
 use phpDocumentor\Reflection\DocBlockFactory;
 use phpDocumentor\Reflection\PseudoTypes\ArrayShape;
@@ -29,10 +31,14 @@ use phpDocumentor\Reflection\Types\Collection as DocBlockCollection;
 use phpDocumentor\Reflection\Types\Compound;
 use phpDocumentor\Reflection\Types\Float_;
 use phpDocumentor\Reflection\Types\Integer;
+use phpDocumentor\Reflection\Types\Mixed_;
 use phpDocumentor\Reflection\Types\Null_;
 use phpDocumentor\Reflection\Types\Object_;
 use phpDocumentor\Reflection\Types\String_;
 use phpDocumentor\Reflection\Types\This;
+use PhpParser\Node;
+use PhpParser\Node\Stmt\ClassMethod;
+use PhpParser\NodeVisitorAbstract;
 
 class DocBlockHelper
 {
@@ -72,6 +78,151 @@ class DocBlockHelper
                     format: "binary",
                     nullable: $nullable
                 );
+            } else if (is_subclass_of($classFullname, 'TiMacDonald\JsonApi\JsonApiResource')) {
+                $resourceClass = new \ReflectionClass($classFullname);
+
+                $toAttributesMethod = $resourceClass->getMethod('toAttributes');
+                if($toAttributesMethod->getDeclaringClass()->getName() !== 'TiMacDonald\JsonApi\JsonApiResource') {
+                    $toAttributesDocs = $toAttributesMethod->getDocComment();
+                    if ($toAttributesDocs) {
+                        $toAttributesDocBlock = DocBlockFactory::createInstance()->create($toAttributesDocs);
+                        $returnTags = $toAttributesDocBlock->getTagsByName('return');
+
+                        /** @var Return_ $propertyTag */
+                        foreach ($returnTags as $returnTag) {
+                            $spec->putComponentSchema($name, function () use ($name, $classFullname, $spec, $nullable, $returnTag, $resourceClass) {
+                                $schema = DocBlockHelper::parseTagType($returnTag->getType(), $nullable, $resourceClass, $spec);
+
+                                return new ComponentSchemaItem(
+                                    id: $name,
+                                    schema: new ObjectSchema(
+                                        properties: [
+                                            'id' => new Schema(
+                                                type: 'string',
+                                            ),
+                                            'attributes' => new ObjectSchema(
+                                                properties: $schema->properties
+                                            )
+                                        ]
+                                    )
+                                );
+                            });
+
+                            return new RefSchema(
+                                ref: $name,
+                                nullable: $nullable
+                            );
+                        }
+                    }
+                }
+
+                $typeClassName = null;
+
+                $attributes = [];
+                CodeHelper::parseClassNodes(
+                    $resourceClass,
+                    /** @var \PhpParser\Node\Stmt\Property $property */
+                    function ($property) use (&$attributes) {
+                        foreach ($property->props as $prop) {
+                            $propertyName = $prop->name->toString();
+                            switch ($propertyName) {
+                                case 'attributes':
+                                    $attributes = array_merge($attributes, CodeHelper::extractArrayValues($prop->default));
+                                    break;
+                            }
+                        }
+                    },
+                    /** @var ClassMethod $method */
+                    function ($method, $methodReturnNodes) use (&$attributes) {
+                        $methodName = $method->name->toString();
+                        if (
+                            $method->isStatic() ||
+                            $method->isPrivate() ||
+                            !in_array($methodName, ['toAttributes'])
+                        ) {
+                            return;
+                        }
+
+                        foreach ($methodReturnNodes as $return) {
+                            if ($methodName === 'toAttributes') {
+                                $assocAttributes = CodeHelper::extractAssocArrayValues($return->expr);
+                                $attributes = array_merge($attributes, array_keys($assocAttributes));
+                            }
+                        }
+                    }
+                );
+
+                $resourceAttributes = [];
+                $resourceDocs = $resourceClass->getDocComment();
+                if ($resourceDocs) {
+                    $resourceDocBlock = DocBlockFactory::createInstance()->create($resourceDocs);
+                    $mixinTags = $resourceDocBlock->getTagsByName('mixin');
+                    $propertyTags = $resourceDocBlock->getTagsByName('property');
+                    $propertyReadTags = $resourceDocBlock->getTagsByName('property-read');
+
+
+                    /** @var Mixin $mixinTag */
+                    foreach ($mixinTags as $mixinTag) {
+                        $type = $mixinTag->getType();
+                        $typeClassName = $type->getFqsen()->getName();
+                    }
+
+                    if ($typeClassName === null) {
+                        /** @var Property $mixinTag */
+                        foreach ($propertyTags as $propertyTag) {
+                            $type = $mixinTag->getType();
+                            $typeClassName = $type->getFqsen()->getName();
+                        }
+                    }
+
+
+                    if ($typeClassName === null) {
+                        /** @var PropertyRead $mixinTag */
+                        foreach ($propertyReadTags as $propertyReadTag) {
+                            $type = $propertyReadTag->getType();
+                            $typeClassName = $type->getFqsen()->getName();
+                        }
+                    }
+                }
+
+
+                if ($typeClassName === null) {
+                    throw new \Exception("Cannot understand which model class of resource $classFullname");
+                }
+
+                $typeClassFullname = ClassHelper::getClassFullname($typeClassName, $resourceClass);
+                $resourceModel = ModelHelper::parseModel($typeClassFullname, $spec, $nullable);
+
+                foreach ($attributes as $attribute) {
+                    if (isset($resourceModel->properties[$attribute])) {
+                        $resourceAttributes[$attribute] = $resourceModel->properties[$attribute];
+                    }
+                }
+
+                $spec->putComponentSchema($name, function () use ($name, $resourceAttributes) {
+                    return new ComponentSchemaItem(
+                        id: $name,
+                        schema: new ObjectSchema(
+                            properties: [
+                                'id' => new Schema(
+                                    type: 'string',
+                                ),
+                                'attributes' => new ObjectSchema(
+                                    properties: $resourceAttributes
+                                )
+                            ]
+                        )
+                    );
+                });
+
+                return new RefSchema(
+                    ref: $name,
+                    nullable: $nullable
+                );
+
+
+
+
             } else if (is_subclass_of($classFullname, 'Illuminate\Http\Resources\Json\JsonResource') || is_subclass_of($classFullname, 'Illuminate\Http\Resources\Json\ResourceCollection')) {
                 $resourceClass = new \ReflectionClass($classFullname);
                 $toArrayMethod = $resourceClass->getMethod('toArray');
@@ -152,6 +303,12 @@ class DocBlockHelper
                 items: self::parseTagType($innerType, false, $classReflection, $spec)
             );
         } else if (
+            $type instanceof Mixed_
+        ) {
+            return new Schema(
+                type: 'string'
+            );
+        }else if (
             $type instanceof DocBlockCollection
         ) {
             $collectionType = $type->getFqsen();
