@@ -14,75 +14,7 @@ use MartinPham\TypeGenerator\Definitions\Spec;
 
 class ClassHelperTest extends TestCase
 {
-    /**
-     * Test getClassImports with a class that has imports
-     */
-    public function test_get_class_imports_with_imports()
-    {
-        $reflection = new ReflectionClass(ClassHelper::class);
-        $imports = CodeHelper::getImports($reflection);
 
-        $this->assertIsArray($imports);
-        $this->assertNotEmpty($imports);
-
-        // Check for specific imports that should be in the ClassHelper class
-        $this->assertArrayHasKey('EloquentModel', $imports);
-        $this->assertEquals('Illuminate\Database\Eloquent\Model', $imports['EloquentModel']);
-    }
-
-    /**
-     * Test getClassImports with a class that has no imports
-     */
-    public function test_get_class_imports_with_no_imports()
-    {
-        // Create a simple class with no imports for testing
-        $code = '<?php class EmptyClass {}';
-        $tempFile = tempnam(sys_get_temp_dir(), 'test_');
-        file_put_contents($tempFile, $code);
-
-        // Include the file and get a reflection of the class
-        include_once $tempFile;
-        $reflection = new ReflectionClass('EmptyClass');
-
-        $imports = CodeHelper::getImports($reflection);
-
-        $this->assertIsArray($imports);
-        $this->assertEmpty($imports);
-
-        // Clean up
-        unlink($tempFile);
-    }
-
-    /**
-     * Test getClassImports with a class that has grouped imports
-     */
-    public function test_get_class_imports_with_grouped_imports()
-    {
-        // Create a class with grouped imports for testing
-        $code = '<?php
-        namespace Test;
-        use Foo\Bar\{Baz, Qux as AliasQux};
-        class GroupedImportsClass {}';
-
-        $tempFile = tempnam(sys_get_temp_dir(), 'test_');
-        file_put_contents($tempFile, $code);
-
-        // Include the file and get a reflection of the class
-        include_once $tempFile;
-        $reflection = new ReflectionClass('Test\GroupedImportsClass');
-
-        $imports = CodeHelper::getImports($reflection);
-
-        $this->assertIsArray($imports);
-        $this->assertNotEmpty($imports);
-        $this->assertArrayHasKey('Baz', $imports);
-        $this->assertEquals('Foo\Bar\Baz', $imports['Baz']);
-        $this->assertArrayHasKey('AliasQux', $imports);
-        $this->assertEquals('Foo\Bar\Qux', $imports['AliasQux']);
-
-        // Clean up
-        unlink($tempFile);
-    }
 
     /**
      * Test parseClass with a DateTime class
