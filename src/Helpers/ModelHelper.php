@@ -308,7 +308,6 @@ class ModelHelper
             }
         );
 
-        dd($relationships);
 
         return new ObjectSchema(
             properties: array_merge($properties, $relationships),
