@@ -73,12 +73,14 @@ class DocBlockHelper
                     format: "date-time",
                     nullable: $nullable
                 );
-            } else if ($classFullname === UploadedFile::class) {
+            }
+            else if ($classFullname === UploadedFile::class) {
                 return new StringSchema(
                     format: "binary",
                     nullable: $nullable
                 );
-            } else if (is_subclass_of($classFullname, 'TiMacDonald\JsonApi\JsonApiResource')) {
+            }
+            else if (is_subclass_of($classFullname, 'TiMacDonald\JsonApi\JsonApiResource')) {
                 $resourceClass = new \ReflectionClass($classFullname);
 
                 $toAttributesMethod = $resourceClass->getMethod('toAttributes');
@@ -219,11 +221,11 @@ class DocBlockHelper
                     ref: $name,
                     nullable: $nullable
                 );
-
-
-
-
-            } else if (is_subclass_of($classFullname, 'Illuminate\Http\Resources\Json\JsonResource') || is_subclass_of($classFullname, 'Illuminate\Http\Resources\Json\ResourceCollection')) {
+            }
+            else if (
+                is_subclass_of($classFullname, 'Illuminate\Http\Resources\Json\JsonResource')
+                || is_subclass_of($classFullname, 'Illuminate\Http\Resources\Json\ResourceCollection')
+            ) {
                 $resourceClass = new \ReflectionClass($classFullname);
                 $toArrayMethod = $resourceClass->getMethod('toArray');
                 $toArrayMethodDocs = $toArrayMethod->getDocComment();
@@ -233,7 +235,6 @@ class DocBlockHelper
 
                     /** @var Return_ $propertyTag */
                     foreach ($returnTags as $returnTag) {
-
                         $spec->putComponentSchema($name, function () use ($name, $classFullname, $spec, $nullable, $returnTag, $resourceClass) {
                             return new ComponentSchemaItem(
                                 id: $name,
@@ -247,6 +248,98 @@ class DocBlockHelper
                         );
                     }
                 }
+
+
+                $attributes = [];
+                CodeHelper::parseClassNodes(
+                    $resourceClass,
+                    /** @var \PhpParser\Node\Stmt\Property $property */
+                    function ($property) {
+                    },
+                    /** @var ClassMethod $method */
+                    function ($method, $methodReturnNodes) use (&$attributes) {
+                        $methodName = $method->name->toString();
+                        if (
+                            $method->isStatic() ||
+                            $method->isPrivate() ||
+                            !in_array($methodName, ['toArray'])
+                        ) {
+                            return;
+                        }
+
+                        foreach ($methodReturnNodes as $return) {
+                            if ($methodName === 'toArray') {
+                                $assocAttributes = CodeHelper::extractAssocArrayValues($return->expr);
+                                $attributes = array_merge($attributes, array_keys($assocAttributes));
+                            }
+                        }
+                    }
+                );
+
+
+                $resourceAttributes = [];
+                $resourceDocs = $resourceClass->getDocComment();
+                if ($resourceDocs) {
+                    $resourceDocBlock = DocBlockFactory::createInstance()->create($resourceDocs);
+                    $mixinTags = $resourceDocBlock->getTagsByName('mixin');
+                    $propertyTags = $resourceDocBlock->getTagsByName('property');
+                    $propertyReadTags = $resourceDocBlock->getTagsByName('property-read');
+
+
+                    /** @var Mixin $mixinTag */
+                    foreach ($mixinTags as $mixinTag) {
+                        $type = $mixinTag->getType();
+                        $typeClassName = $type->getFqsen()->getName();
+                    }
+
+                    if ($typeClassName === null) {
+                        /** @var Property $mixinTag */
+                        foreach ($propertyTags as $propertyTag) {
+                            $type = $mixinTag->getType();
+                            $typeClassName = $type->getFqsen()->getName();
+                        }
+                    }
+
+
+                    if ($typeClassName === null) {
+                        /** @var PropertyRead $mixinTag */
+                        foreach ($propertyReadTags as $propertyReadTag) {
+                            $type = $propertyReadTag->getType();
+                            $typeClassName = $type->getFqsen()->getName();
+                        }
+                    }
+                }
+
+
+                if ($typeClassName === null) {
+                    throw new \Exception("Cannot understand which model class of resource $classFullname");
+                }
+
+                $typeClassFullname = ClassHelper::getClassFullname($typeClassName, $resourceClass);
+                $resourceModel = ModelHelper::parseModel($typeClassFullname, $spec, $nullable);
+
+                foreach ($attributes as $attribute) {
+                    if (isset($resourceModel->properties[$attribute])) {
+                        $resourceAttributes[$attribute] = $resourceModel->properties[$attribute];
+                    }
+                }
+
+                $spec->putComponentSchema($name, function () use ($name, $resourceAttributes) {
+                    return new ComponentSchemaItem(
+                        id: $name,
+                        schema: new ObjectSchema(
+                            properties: $resourceAttributes
+                        )
+                    );
+                });
+
+                return new RefSchema(
+                    ref: $name,
+                    nullable: $nullable
+                );
+
+
+
             }
 
 
@@ -322,7 +415,16 @@ class DocBlockHelper
                 $innerType = $type->getKeyType();
             }
 
-            if (is_subclass_of($collectionTypeClass, 'Illuminate\Support\Collection') || $collectionTypeClass === 'Spatie\LaravelData\DataCollection') {
+            if (
+                is_subclass_of($collectionTypeClass, 'Illuminate\Http\Resources\Json\JsonResource')
+                || $collectionTypeClass === 'Illuminate\Http\Resources\Json\JsonResource'
+            ) {
+                return self::parseTagType($innerType, false, $classReflection, $spec);
+            } else if (
+                is_subclass_of($collectionTypeClass, 'Illuminate\Support\Collection')
+                || $collectionTypeClass === 'Spatie\LaravelData\DataCollection'
+                || $collectionTypeClass === 'Illuminate\Http\Resources\Json\ResourceCollection'
+            ) {
                 return new ArraySchema(
                     items: self::parseTagType($innerType, false, $classReflection, $spec)
                 );
@@ -353,7 +455,7 @@ class DocBlockHelper
                     ref: $schemaName,
                     nullable: false
                 );
-            } else if (is_subclass_of($collectionTypeClass, 'Illuminate\Contracts\Pagination\LengthAwarePaginator')) {
+            } else if (is_subclass_of($collectionTypeClass, 'Illuminate\Contracts\Pagination\LengthAwarePaginator') || $collectionTypeClass === 'Illuminate\Contracts\Pagination\LengthAwarePaginator') {
                 /** @var Object_ $innerType */
                 $schemaName = $innerType->getFqsen()->getName() . '_LengthAwarePaginator';
                 $spec->putComponentSchema($schemaName, function () use ($schemaName, $innerType, $spec, $classReflection) {
@@ -370,7 +472,7 @@ class DocBlockHelper
                     ref: $schemaName,
                     nullable: false
                 );
-            } else if (is_subclass_of($collectionTypeClass, 'Illuminate\Contracts\Pagination\Paginator')) {
+            } else if (is_subclass_of($collectionTypeClass, 'Illuminate\Contracts\Pagination\Paginator') || $collectionTypeClass === 'Illuminate\Contracts\Pagination\Paginator') {
                 /** @var Object_ $innerType */
                 $schemaName = $innerType->getFqsen()->getName() . '_Paginator';
                 $spec->putComponentSchema($schemaName, function () use ($schemaName, $innerType, $spec, $classReflection) {
@@ -404,7 +506,7 @@ class DocBlockHelper
                     ref: $schemaName,
                     nullable: false
                 );
-            } else if (is_subclass_of($collectionTypeClass, 'Illuminate\Contracts\Pagination\CursorPaginator')) {
+            } else if (is_subclass_of($collectionTypeClass, 'Illuminate\Contracts\Pagination\CursorPaginator') || $collectionTypeClass === 'Illuminate\Contracts\Pagination\CursorPaginator') {
                 /** @var Object_ $innerType */
                 $schemaName = $innerType->getFqsen()->getName() . '_CursorPaginator';
                 $spec->putComponentSchema($schemaName, function () use ($schemaName, $innerType, $spec, $classReflection) {

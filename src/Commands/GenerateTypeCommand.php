@@ -396,9 +396,9 @@ class GenerateTypeCommand extends Command
 
                                 $this->info("> > > Native method returns list data type => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
                             } else if (
-                                is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\Paginator')
-                                || is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\LengthAwarePaginator')
-                                || is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\CursorPaginator')
+                                is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\Paginator') || $methodTypeName === 'Illuminate\Contracts\Pagination\Paginator'
+                                || is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\LengthAwarePaginator') || $methodTypeName === 'Illuminate\Pagination\LengthAwarePaginator'
+                                || is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\CursorPaginator') || $methodTypeName === 'Illuminate\Contracts\Pagination\CursorPaginator'
                             ) {
                                 $methodSchemas = $methodDocsSchemas;
 
@@ -406,8 +406,8 @@ class GenerateTypeCommand extends Command
                             } else if (
                                 is_subclass_of($methodTypeName, 'TiMacDonald\JsonApi\JsonApiResource')
                                 || is_subclass_of($methodTypeName, 'TiMacDonald\JsonApi\JsonApiResourceCollection')
-                                || is_subclass_of($methodTypeName, 'Illuminate\Http\Resources\Json\ResourceCollection')
-                                || is_subclass_of($methodTypeName, 'Illuminate\Http\Resources\Json\JsonResource')
+                                || is_subclass_of($methodTypeName, 'Illuminate\Http\Resources\Json\ResourceCollection') || $methodTypeName === 'Illuminate\Http\Resources\Json\ResourceCollection'
+                                || is_subclass_of($methodTypeName, 'Illuminate\Http\Resources\Json\JsonResource') || $methodTypeName === 'Illuminate\Http\Resources\Json\JsonResource'
                             ) {
 
                                 $methodAllowNull = $methodType->allowsNull();
@@ -421,7 +421,34 @@ class GenerateTypeCommand extends Command
 
                                 if (
                                     $classFullname === 'TiMacDonald\JsonApi\JsonApiResource'
-                                    || $classFullname === 'TiMacDonald\JsonApi\JsonApiResourceCollection'
+                                ) {
+                                    $methodSchemas = array_map(function ($schema) {
+                                        return new ObjectSchema(
+                                            properties: [
+                                                'data' => $schema
+                                            ]
+                                        );
+                                    }, $methodDocsSchemas);
+
+
+                                    $this->info("> > > Native method return generic json api collection resource => Applied " . count($methodSchemas) . " method return(s) with filters from DocBlock");
+                                } elseif (
+                                    $classFullname === 'TiMacDonald\JsonApi\JsonApiResourceCollection'
+                                ) {
+                                    $methodSchemas = array_map(function ($schema) {
+                                        return new ObjectSchema(
+                                            properties: [
+                                                'data' => new ArraySchema(
+                                                    items: $schema
+                                                )
+                                            ]
+                                        );
+                                    }, $methodDocsSchemas);
+
+                                    $this->info("> > > Native method return generic json api resource => Applied " . count($methodSchemas) . " method return(s) with filters from DocBlock");
+                                } else if (
+                                    $classFullname === 'Illuminate\Http\Resources\Json\JsonResource'
+                                    || $classFullname === 'Illuminate\Http\Resources\Json\ResourceCollection'
                                 ) {
                                     $methodSchemas = array_map(function ($schema) {
                                         return new ObjectSchema(
