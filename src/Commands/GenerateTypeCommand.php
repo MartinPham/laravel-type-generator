@@ -27,6 +27,7 @@ use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
 use MartinPham\TypeGenerator\Definitions\Spec;
 use MartinPham\TypeGenerator\Helpers\ClassHelper;
+use MartinPham\TypeGenerator\Helpers\CodeHelper;
 use MartinPham\TypeGenerator\Helpers\DocBlockHelper;
 use MartinPham\TypeGenerator\Helpers\SchemaHelper;
 use phpDocumentor\Reflection\DocBlock\Tags\Generic;
@@ -272,7 +273,8 @@ class GenerateTypeCommand extends Command
 //                                        );
 //                                    }
 
-                                    $properties = ClassHelper::readClass($typeClass, new class extends NodeVisitorAbstract {
+                                    $typeClassReflection = new ReflectionClass($typeClass);
+                                    $properties = CodeHelper::parseClassCode($typeClassReflection, new class extends NodeVisitorAbstract {
                                         public array $results = [];
 
                                         public function enterNode(Node $node)
@@ -486,19 +488,8 @@ class GenerateTypeCommand extends Command
                             /** @var Object_ $throwsType */
                             $throwsType = $throwsTag->getType();
                             $name = $throwsType->getFqsen()->getName();
-                            $namespace = $classReflection->getNamespaceName();
-                            $imports = ClassHelper::getClassImports($classReflection);
 
-                            $classFullname = $name;
-
-                            if (isset($imports[$name])) {
-                                $classFullname = $imports[$name];
-                            } else if (!class_exists($name)) {
-                                if (!class_exists($namespace . '\\' . $name)) {
-                                    throw new \Exception("Cannot locate class $name");
-                                }
-                                $classFullname = $namespace . '\\' . $name;
-                            }
+                            $classFullname = ClassHelper::getClassFullname($name, $classReflection);
 
                             $errorContentItem->putExample(new ContentExampleItem(
                                 name: $throwsTag->getDescription(),

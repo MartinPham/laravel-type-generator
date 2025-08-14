@@ -52,20 +52,7 @@ class DocBlockHelper
             $fqsen = $type->getFqsen();
             $name = $fqsen->getName();
 
-
-            $namespace = $classReflection->getNamespaceName();
-            $imports = ClassHelper::getClassImports($classReflection);
-
-            $classFullname = $name;
-
-            if (isset($imports[$name])) {
-                $classFullname = $imports[$name];
-            } else if (!class_exists($name)) {
-                if (!class_exists($namespace . '\\' . $name)) {
-                    throw new \Exception("Cannot locate class $name");
-                }
-                $classFullname = $namespace . '\\' . $name;
-            }
+            $classFullname = ClassHelper::getClassFullname($name, $classReflection);
 
             if (is_subclass_of($classFullname, 'DateTimeInterface')) {
                 return new StringSchema(
@@ -139,19 +126,7 @@ class DocBlockHelper
             $collectionType = $type->getFqsen();
             $collectionTypeName = $collectionType->getName();
 
-            $namespace = $classReflection->getNamespaceName();
-            $imports = ClassHelper::getClassImports($classReflection);
-
-            $collectionTypeClass = $collectionTypeName;
-
-            if (isset($imports[$collectionTypeName])) {
-                $collectionTypeClass = $imports[$collectionTypeName];
-            } else if (!class_exists($collectionTypeName)) {
-                if (!class_exists($namespace . '\\' . $collectionTypeName)) {
-                    throw new \Exception("Cannot locate class $collectionTypeName");
-                }
-                $collectionTypeClass = $namespace . '\\' . $collectionTypeName;
-            }
+            $collectionTypeClass = ClassHelper::getClassFullname($collectionTypeName, $classReflection);
 
             $innerType = $type->getValueType();
 

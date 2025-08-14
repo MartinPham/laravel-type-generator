@@ -22,97 +22,23 @@ use ReflectionUnionType;
 
 class ClassHelper
 {
-    public static function getClassFileContents(ReflectionClass $reflection): string
-    {
-        $filename = $reflection->getFileName();
-        if (!$filename || !file_exists($filename)) {
-            return "";
-        }
+    public static function getClassFullname(string $className, \ReflectionClass $inClassReflection): string {
+        $namespace = $inClassReflection->getNamespaceName();
+        $imports = CodeHelper::getImports(file_get_contents($inClassReflection->getFileName()));
 
-        return file_get_contents($filename);
-    }
+        $classFullname = $className;
 
-    public static function getClassImports(ReflectionClass $reflection): array
-    {
-        $contents = self::getClassFileContents($reflection);
-
-        // Only parse up to the class/interface/trait definition
-        $classPos = strpos($contents, 'class');
-        if ($classPos === false) {
-            $classPos = strpos($contents, 'interface');
-        }
-        if ($classPos === false) {
-            $classPos = strpos($contents, 'trait');
-        }
-        if ($classPos === false) {
-            $classPos = strlen($contents); // fallback
-        }
-
-        $head = substr($contents, 0, $classPos);
-
-        // Normalize use statements (collapse multi-line use blocks)
-        $head = preg_replace('/\s*\\\s*\n\s*/', '\\', $head); // Join split namespaces
-        $head = preg_replace('/use\s+([^;]+);/mi', 'use $1;', $head); // Clean spacing
-        $head = preg_replace('/\s+/', ' ', $head); // Remove excessive whitespace
-
-        preg_match_all('/use\s+([^;]+);/', $head, $matches);
-
-        $mapped = [];
-
-        foreach ($matches[1] as $importBlock) {
-            // Split by commas not in braces
-            $parts = preg_split('/,(?![^{]*})/', $importBlock);
-            foreach ($parts as $part) {
-                $part = trim($part);
-
-                // Grouped import: use Foo\Bar\{Baz, Qux as Alias};
-                if (preg_match('/^(.+?)\\\{(.+)}$/', $part, $groupMatch)) {
-                    $base = trim($groupMatch[1], '\\');
-                    $classes = explode(',', $groupMatch[2]);
-                    foreach ($classes as $class) {
-                        $class = trim($class);
-                        if (stripos($class, ' as ') !== false) {
-                            [$original, $alias] = preg_split('/\s+as\s+/i', $class);
-                            $mapped[trim($alias)] = $base . '\\' . trim($original);
-                        } else {
-                            $mapped[$class] = $base . '\\' . $class;
-                        }
-                    }
-                }
-                // Aliased import
-                elseif (stripos($part, ' as ') !== false) {
-                    [$fqcn, $alias] = preg_split('/\s+as\s+/i', $part);
-                    $mapped[trim($alias)] = trim($fqcn);
-                }
-                // Simple import
-                else {
-                    $fqcn = trim($part);
-                    $segments = explode('\\', $fqcn);
-                    $classname = end($segments);
-                    $mapped[$classname] = $fqcn;
-                }
+        if (isset($imports[$className])) {
+            $classFullname = $imports[$className];
+        } else if (!class_exists($className)) {
+            if (!class_exists($namespace . '\\' . $className)) {
+                throw new \Exception("Cannot locate class $className");
             }
+            $classFullname = $namespace . '\\' . $className;
         }
 
-        return $mapped;
+        return $classFullname;
     }
-
-    public static function readClass(string $classFullname, NodeVisitor $visitor)
-    {
-        $classReflection = new ReflectionClass($classFullname);
-
-
-        $contents = self::getClassFileContents($classReflection);
-
-        $parser = (new ParserFactory())->createForNewestSupportedVersion();
-        $ast = $parser->parse($contents);
-        $traverser = new NodeTraverser();
-        $traverser->addVisitor($visitor);
-        $traverser->traverse($ast);
-
-        return $visitor->results;
-    }
-
 
     public static function parseClass(string $classFullname, $spec, $nullable, $onlyFromDocblock = false)
     {
@@ -200,19 +126,8 @@ class ClassHelper
                             );
                         } else {
                             $name = $propertyTypeName;
-                            $namespace = $classReflection->getNamespaceName();
-                            $imports = ClassHelper::getClassImports($classReflection);
 
-                            $classFullname = $propertyTypeName;
-
-                            if (isset($imports[$name])) {
-                                $classFullname = $imports[$name];
-                            } else if (!class_exists($name)) {
-                                if (!class_exists($namespace . '\\' . $name)) {
-                                    throw new \Exception("Cannot locate class $name");
-                                }
-                                $classFullname = $namespace . '\\' . $name;
-                            }
+                            $classFullname = ClassHelper::getClassFullname($name, $classReflection);
 
                             if (is_subclass_of($classFullname, 'DateTimeInterface')) {
                                 return new StringSchema(

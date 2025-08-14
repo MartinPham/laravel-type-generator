@@ -2,13 +2,27 @@
 
 namespace MartinPham\TypeGenerator\Helpers;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Schema as FacadeSchema;
+use MartinPham\TypeGenerator\Definitions\Items\ComponentSchemaItem;
+use MartinPham\TypeGenerator\Definitions\Schemas\ArraySchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
 use MartinPham\TypeGenerator\Definitions\Schemas\StringSchema;
 use Illuminate\Support\Str;
 use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
 use phpDocumentor\Reflection\DocBlock\Tags\Return_;
 use phpDocumentor\Reflection\DocBlockFactory;
+use phpDocumentor\Reflection\Types\Collection;
+use PhpParser\Node\Expr\Array_;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Scalar\String_;
+use PhpParser\Node\Stmt\Class_;
+use PhpParser\Node\Stmt\ClassMethod;
+use PhpParser\Node\Stmt\Property;
+use PhpParser\NodeFinder;
+use PhpParser\ParserFactory;
 use ReflectionClass;
 use ReflectionMethod;
 
@@ -27,25 +41,91 @@ class ModelHelper
         'Illuminate\Database\Eloquent\Relations\MorphMany' => 'multiple',
     ];
 
+    public const RELATION_CALL_NAME = [
+        'hasOne' => 'Illuminate\Database\Eloquent\Relations\HasOne',
+        'hasMany' => 'Illuminate\Database\Eloquent\Relations\HasMany',
+        'belongsTo' => 'Illuminate\Database\Eloquent\Relations\BelongsTo',
+        'belongsToMany' => 'Illuminate\Database\Eloquent\Relations\BelongsToMany',
+        'morphOne' => 'Illuminate\Database\Eloquent\Relations\MorphOne',
+        'morphMany' => 'Illuminate\Database\Eloquent\Relations\MorphMany',
+        'morphTo' => 'Illuminate\Database\Eloquent\Relations\MorphTo',
+        'morphToMany' => 'Illuminate\Database\Eloquent\Relations\MorphToMany',
+        'morphedByMany' => 'Illuminate\Database\Eloquent\Relations\MorphedByMany',
+        'hasManyThrough' => 'Illuminate\Database\Eloquent\Relations\HasManyThrough',
+        'hasOneThrough' => 'Illuminate\Database\Eloquent\Relations\HasOneThrough'
+    ];
+
     public static function parseModel(string $classFullname, $spec, $nullable)
     {
-        $instance = new $classFullname;
-        $table = $instance->getTable();
-
-        $connection = FacadeSchema::getConnection();
-        $schemaBuilder = $connection->getSchemaBuilder();
-        $columns = $schemaBuilder->getColumns($table);
-
-
         $classReflection = new ReflectionClass($classFullname);
 
-        $hiddenProperty = $classReflection->getProperty('hidden');
-        $hiddenProperty->setAccessible(true);
-        $hidden = $hiddenProperty->getValue($instance);
+        $table = null;
+        $connection = null;
+        $hidden = [];
+        $casts = [];
+        $relationships = [];
 
-        $castsProperty = $classReflection->getProperty('casts');
-        $castsProperty->setAccessible(true);
-        $casts = $castsProperty->getValue($instance);
+        CodeHelper::parseClassNodes(
+            $classReflection,
+            /** @var Property $property */
+            function ($property) use (&$table, &$hidden, &$casts, &$connection) {
+                foreach ($property->props as $prop) {
+                    $propertyName = $prop->name->toString();
+                    switch ($propertyName) {
+                        case 'connection':
+                            $connection = CodeHelper::extractStringValue($prop->default);
+                            break;
+
+                        case 'table':
+                            $table = CodeHelper::extractStringValue($prop->default);
+                            break;
+
+                        case 'hidden':
+                            $hidden = array_merge($hidden, CodeHelper::extractArrayValues($prop->default));
+                            break;
+
+                        case 'casts':
+                            $casts = array_merge($casts, CodeHelper::extractAssocArrayValues($prop->default));
+                            break;
+                    }
+                }
+            },
+            /** @var ClassMethod $method */
+            function ($method, $methodReturnNodes) use (&$table, &$hidden, &$casts, &$connection, $classReflection, $spec, &$relationships) {
+                $methodName = $method->name->toString();
+                if (
+                    $method->isStatic() ||
+                    $method->isPrivate() ||
+                    !in_array($methodName, ['casts', 'hidden', 'getCasts', 'getHidden', 'getTable', 'getConnectionName'])
+                ) {
+                    return;
+                }
+
+                foreach ($methodReturnNodes as $return) {
+                    if ($methodName === 'getCasts' || $methodName === 'casts') {
+                        $casts = array_merge(CodeHelper::extractAssocArrayValues($return->expr));
+                    }
+                    else if ($methodName === 'getHidden' || $methodName === 'hidden') {
+                        $casts = array_merge(CodeHelper::extractArrayValues($return->expr));
+                    }
+                    else if ($methodName === 'getTable') {
+                        $table = CodeHelper::extractStringValue($return->expr);
+                    }
+                    else if ($methodName === 'getConnectionName') {
+                        $connection = CodeHelper::extractStringValue($return->expr);
+                    }
+                }
+            }
+        );
+
+        if ($table === null) {
+            $baseClassName = basename(str_replace('\\', '/', $classFullname));
+            $table = Str::snake(Str::pluralStudly($baseClassName));
+        }
+
+        $dbConnection = ($connection === null) ? FacadeSchema::getConnection() : FacadeSchema::connection($connection)->getConnection();
+        $schemaBuilder = $dbConnection->getSchemaBuilder();
+        $columns = $schemaBuilder->getColumns($table);
 
         $properties = [];
 
@@ -128,27 +208,29 @@ class ModelHelper
             }
         }
 
-        $methods = $classReflection->getMethods(ReflectionMethod::IS_PUBLIC);
+        CodeHelper::parseClassNodes(
+            $classReflection,
+            /** @var Property $property */
+            function ($property)  {
+            },
+            /** @var ClassMethod $method */
+            function ($method, $methodReturnNodes) use ($hidden, $classReflection, $spec, &$relationships) {
+                $methodName = $method->name->toString();
+                echo $methodName.PHP_EOL;
+                if (
+                    $method->isStatic() ||
+                    $method->isPrivate() ||
+                    count($method->params) > 0 ||
+                    Str::startsWith($methodName, ['get', 'set', 'scope', '__'])
+                ) {
+                    return;
+                }
 
-        foreach ($methods as $method) {
-            if (
-                $method->isStatic() ||
-                $method->getNumberOfParameters() > 0 ||
-                Str::startsWith($method->getName(), ['get', 'set', 'scope', '__']) ||
-                in_array($method->getName(), ['save', 'delete', 'update', 'create', 'find', 'where'])
-            ) {
-                continue;
-            }
+                if (in_array($methodName, $hidden)) {
+                    return;
+                }
 
-            $methodName = $method->getName();
-            if (in_array($methodName, $hidden)) {
-                continue;
-            }
-
-            $methodReturnType = $method->getReturnType();
-            /** @var \ReflectionNamedType|null $methodReturnType */
-            if ($methodReturnType !== null && isset(self::RELATION_TYPE[$methodReturnType->getName()])) {
-                $methodReflection = $classReflection->getMethod($methodName);
+                $methodReflection = $classReflection->getMethod($methodName);;
                 $methodDocs = $methodReflection->getDocComment();
 
                 if ($methodDocs) {
@@ -157,17 +239,79 @@ class ModelHelper
 
                     /** @var Return_ $returnTag */
                     foreach ($returnTags as $returnTag) {
-                        $schema = DocBlockHelper::parseTagType($returnTag->getType(), false, $spec, $classReflection);
+                        $returnTagType = $returnTag->getType();
+                        if ($returnTagType instanceof Collection) {
+                            $returnTagTypeClassname = $returnTagType->getFqsen()->getName();
+                            $returnTagTypeClassFullname = ClassHelper::getClassFullname($returnTagTypeClassname, $classReflection);
 
-                        $properties[$methodName] = $schema;
+                            if(isset(self::RELATION_TYPE[$returnTagTypeClassFullname])) {
+                                $relationships[$methodName] = DocBlockHelper::parseTagType($returnTag->getType(), false, $spec, $classReflection);
+                            }
+                        }
                     }
                 }
-            }
-        }
 
+                if (!isset($relationships[$methodName])) {
+                    foreach ($methodReturnNodes as $return) {
+                        if ($return->expr instanceof MethodCall) {
+                            $call = $return->expr;
+
+                            if (!($call->var instanceof Variable && $call->var->name === 'this')) {
+                                continue;
+                            }
+
+                            $callMethod = $call->name->toString();
+
+                            if(!isset(self::RELATION_CALL_NAME[$callMethod])) {
+                                continue;
+                            }
+
+                            $relation = self::RELATION_CALL_NAME[$callMethod];
+                            $relationType = self::RELATION_TYPE[$relation];
+
+                            foreach ($call->args as $index => $arg) {
+                                $value = CodeHelper::extractArgumentValue($arg->value);
+                                if ($index === 0) {
+                                    $relatedModel = $value;
+                                    $relatedModelFullClassname = ClassHelper::getClassFullname($relatedModel, $classReflection);
+                                    $parts = explode('\\', $relatedModelFullClassname);
+                                    $relatedModelClassname = $parts[count($parts) - 1];
+
+                                    $spec->putComponentSchema($relatedModelClassname, function () use ($relatedModelClassname, $relatedModelFullClassname, $spec) {
+                                        return new ComponentSchemaItem(
+                                            id: $relatedModelClassname,
+                                            schema: ClassHelper::parseClass($relatedModelFullClassname, $spec, false)
+                                        );
+                                    });
+
+                                    if ($relationType === 'single') {
+                                        $relationships[$methodName] = new RefSchema(
+                                            ref: $relatedModelClassname
+                                        );
+                                    } else if ($relationType === 'multiple') {
+                                        $relationships[$methodName] = new ArraySchema(
+                                            items: new RefSchema(
+                                                ref: $relatedModelClassname
+                                            )
+                                        );
+                                    }
+
+                                    break 2;
+                                }
+                            }
+
+                            break;
+                        }
+                    }
+                }
+
+            }
+        );
+
+        dd($relationships);
 
         return new ObjectSchema(
-            properties: $properties,
+            properties: array_merge($properties, $relationships),
             nullable: $nullable
         );
     }

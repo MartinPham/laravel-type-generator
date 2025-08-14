@@ -20,7 +20,7 @@ class ClassHelperTest extends TestCase
     public function test_get_class_imports_with_imports()
     {
         $reflection = new ReflectionClass(ClassHelper::class);
-        $imports = ClassHelper::getClassImports($reflection);
+        $imports = CodeHelper::getImports($reflection);
 
         $this->assertIsArray($imports);
         $this->assertNotEmpty($imports);
@@ -44,7 +44,7 @@ class ClassHelperTest extends TestCase
         include_once $tempFile;
         $reflection = new ReflectionClass('EmptyClass');
 
-        $imports = ClassHelper::getClassImports($reflection);
+        $imports = CodeHelper::getImports($reflection);
 
         $this->assertIsArray($imports);
         $this->assertEmpty($imports);
@@ -71,7 +71,7 @@ class ClassHelperTest extends TestCase
         include_once $tempFile;
         $reflection = new ReflectionClass('Test\GroupedImportsClass');
 
-        $imports = ClassHelper::getClassImports($reflection);
+        $imports = CodeHelper::getImports($reflection);
 
         $this->assertIsArray($imports);
         $this->assertNotEmpty($imports);
