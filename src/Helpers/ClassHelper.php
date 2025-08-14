@@ -64,7 +64,7 @@ class ClassHelper
 
             /** @var Property $propertyTag */
             foreach ($propertyTags as $propertyTag) {
-                $docblockProperties[$propertyTag->getVariableName()] = DocBlockHelper::parseTagType($propertyTag->getType(), $nullable, $spec, $classReflection);
+                $docblockProperties[$propertyTag->getVariableName()] = DocBlockHelper::parseTagType($propertyTag->getType(), $nullable, $classReflection, $spec);
             }
         }
 
@@ -101,7 +101,7 @@ class ClassHelper
 
                                 /** @var Var_ $varTag */
                                 foreach ($varTags as $varTag) {
-                                    $propertySchemas[] = DocBlockHelper::parseTagType($varTag->getType(), false, $spec, $classReflection);
+                                    $propertySchemas[] = DocBlockHelper::parseTagType($varTag->getType(), false, $classReflection, $spec);
                                 }
                             }
                         } else if ($propertyTypeName === 'bool') {

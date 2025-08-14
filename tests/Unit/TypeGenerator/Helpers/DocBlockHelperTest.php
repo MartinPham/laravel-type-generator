@@ -44,13 +44,13 @@ class DocBlockHelperTest extends TestCase
     {
         $stringType = new String_();
 
-        $schema = DocBlockHelper::parseTagType($stringType, false, $this->specMock, $this->classReflectionMock);
+        $schema = DocBlockHelper::parseTagType($stringType, false, $this->classReflectionMock, $this->specMock);
 
         $this->assertInstanceOf(Schema::class, $schema);
         $this->assertEquals('string', $schema->type);
 
         // Test with nullable
-        $schema = DocBlockHelper::parseTagType($stringType, true, $this->specMock, $this->classReflectionMock);
+        $schema = DocBlockHelper::parseTagType($stringType, true, $this->classReflectionMock, $this->specMock);
 
         $this->assertInstanceOf(Schema::class, $schema);
         $this->assertEquals('string', $schema->type);
@@ -64,7 +64,7 @@ class DocBlockHelperTest extends TestCase
     {
         $intType = new Integer();
 
-        $schema = DocBlockHelper::parseTagType($intType, false, $this->specMock, $this->classReflectionMock);
+        $schema = DocBlockHelper::parseTagType($intType, false, $this->classReflectionMock, $this->specMock);
 
         $this->assertInstanceOf(Schema::class, $schema);
         $this->assertEquals('integer', $schema->type);
@@ -77,7 +77,7 @@ class DocBlockHelperTest extends TestCase
     {
         $floatType = new Float_();
 
-        $schema = DocBlockHelper::parseTagType($floatType, false, $this->specMock, $this->classReflectionMock);
+        $schema = DocBlockHelper::parseTagType($floatType, false, $this->classReflectionMock, $this->specMock);
 
         $this->assertInstanceOf(Schema::class, $schema);
         $this->assertEquals('number', $schema->type);
@@ -90,7 +90,7 @@ class DocBlockHelperTest extends TestCase
     {
         $boolType = new Boolean();
 
-        $schema = DocBlockHelper::parseTagType($boolType, false, $this->specMock, $this->classReflectionMock);
+        $schema = DocBlockHelper::parseTagType($boolType, false, $this->classReflectionMock, $this->specMock);
 
         $this->assertInstanceOf(Schema::class, $schema);
         $this->assertEquals('boolean', $schema->type);
@@ -107,7 +107,7 @@ class DocBlockHelperTest extends TestCase
         $stringType = new String_();
         $arrayType = new Array_($stringType);
 
-        $schema = DocBlockHelper::parseTagType($arrayType, false, $this->specMock, $this->classReflectionMock);
+        $schema = DocBlockHelper::parseTagType($arrayType, false, $this->classReflectionMock, $this->specMock);
 
         $this->assertInstanceOf(ArraySchema::class, $schema);
         $this->assertInstanceOf(Schema::class, $schema->items);

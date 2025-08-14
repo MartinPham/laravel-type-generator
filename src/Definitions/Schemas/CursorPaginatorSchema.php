@@ -4,7 +4,7 @@ namespace MartinPham\TypeGenerator\Definitions\Schemas;
 
 use MartinPham\TypeGenerator\Definitions\Items\PropertyItem;
 
-class PaginatorSchema
+class CursorPaginatorSchema
 {
     public string $type = 'object';
     public array $properties = [];
@@ -15,45 +15,33 @@ class PaginatorSchema
     )
     {
         /*
-            'current_page' => $this->currentPage(),
-            'current_page_url' => $this->url($this->currentPage()),
             'data' => $this->items->toArray(),
-            'first_page_url' => $this->url(1),
-            'from' => $this->firstItem(),
-            'next_page_url' => $this->nextPageUrl(),
             'path' => $this->path(),
             'per_page' => $this->perPage(),
+            'next_cursor' => $this->nextCursor()?->encode(),
+            'next_page_url' => $this->nextPageUrl(),
+            'prev_cursor' => $this->previousCursor()?->encode(),
             'prev_page_url' => $this->previousPageUrl(),
-            'to' => $this->lastItem(),
         */
 
         $this->properties = [
-                'current_page' => new Schema(
-                    type: 'integer'
-                ),
-                'current_page_url' => new Schema(
-                    type: 'string'
-                ),
-                'first_page_url' => new Schema(
-                    type: 'string'
-                ),
-                'from' => new Schema(
-                    type: 'integer'
-                ),
-                'next_page_url' => new Schema(
-                    type: 'string'
-                ),
                 'path' => new Schema(
                     type: 'string'
                 ),
                 'per_page' => new Schema(
                     type: 'integer'
                 ),
-                'prev_page_url' => new Schema(
+                'next_cursor' => new Schema(
                     type: 'string'
                 ),
-                'to' => new Schema(
+                'next_page_url' => new Schema(
+                    type: 'string'
+                ),
+                'prev_cursor' => new Schema(
                     type: 'integer'
+                ),
+                'prev_page_url' => new Schema(
+                    type: 'string'
                 ),
                 'data' => new ArraySchema(
                     items: $schema

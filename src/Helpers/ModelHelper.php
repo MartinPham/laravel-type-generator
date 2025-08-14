@@ -216,7 +216,7 @@ class ModelHelper
             /** @var ClassMethod $method */
             function ($method, $methodReturnNodes) use ($hidden, $classReflection, $spec, &$relationships) {
                 $methodName = $method->name->toString();
-                echo $methodName.PHP_EOL;
+
                 if (
                     $method->isStatic() ||
                     $method->isPrivate() ||
@@ -245,7 +245,7 @@ class ModelHelper
                             $returnTagTypeClassFullname = ClassHelper::getClassFullname($returnTagTypeClassname, $classReflection);
 
                             if(isset(self::RELATION_TYPE[$returnTagTypeClassFullname])) {
-                                $relationships[$methodName] = DocBlockHelper::parseTagType($returnTag->getType(), false, $spec, $classReflection);
+                                $relationships[$methodName] = DocBlockHelper::parseTagType($returnTag->getType(), false, $classReflection, $spec);
                             }
                         }
                     }

@@ -179,6 +179,7 @@ class GenerateTypeCommand extends Command
                         operationId: $operationId
                     );
 
+                    $parameters = [];
 
                     $methodType  = $methodReflection->getReturnType();
                     $methodTypes = $methodType instanceof ReflectionUnionType ? $methodType->getTypes() : [$methodType];
@@ -197,7 +198,7 @@ class GenerateTypeCommand extends Command
 
                         /** @var Return_ $returnTag */
                         foreach ($returnTags as $returnTag) {
-                            $methodDocsSchemas[] = DocBlockHelper::parseTagType($returnTag->getType(), false, $spec, $classReflection);
+                            $methodDocsSchemas[] = DocBlockHelper::parseTagType($returnTag->getType(), false, $classReflection, $spec);
                         }
 
                         $_paramTags = $methodDocblock->getTagsByName('param');
@@ -235,11 +236,9 @@ class GenerateTypeCommand extends Command
                         $op->setTags($tagTags);
                     }
 
-                    $parameters = [];
                     $requestParams = [];
                     $requestParamsNullable = false;
 
-                    /** @var \ReflectionParameter $parameters */
                     foreach($route->signatureParameters() as $parameter) {
                         /** @var Param|null $paramTag */
                         $paramTag = $paramTags[$parameter->name] ?? null;
@@ -314,7 +313,7 @@ class GenerateTypeCommand extends Command
 
 
                                         if ($paramTagValueType instanceof ArrayShape) {
-                                            $requestParams[] = DocBlockHelper::parseTagType($paramTagValueType, $requestParamsNullable, $spec, $classReflection);
+                                            $requestParams[] = DocBlockHelper::parseTagType($paramTagValueType, $requestParamsNullable, $classReflection, $spec);
                                         }
                                     }
                                 }
@@ -322,7 +321,7 @@ class GenerateTypeCommand extends Command
                             }
                         }
 
-                        $parameters[] = new Parameter(
+                        $parameters[$parameter->name] = new Parameter(
                             name: $parameter->name,
                             in: 'path',
                             required: true,
@@ -333,20 +332,6 @@ class GenerateTypeCommand extends Command
                         );
                     }
 
-//                    $parameters = array_map(function ($parameter) use ($paramTags) {
-//                        /** @var Param|null $paramTag */
-//                        $paramTag = $paramTags[$parameter] ?? null;
-//
-//                        return new Parameter(
-//                            name: $parameter,
-//                            in: 'path',
-//                            required: true,
-//                            schema: new Schema(
-//                                type: 'string'
-//                            ),
-//                            description: $paramTag?->getDescription() ?? ''
-//                        );
-//                    }, $route->parameterNames());
 
 
                     $requestParamProperties = [];
@@ -378,7 +363,7 @@ class GenerateTypeCommand extends Command
                         }
                     } else {
                         foreach ($requestParamProperties as $property => $schema) {
-                            $parameters[] = new Parameter(
+                            $parameters[$property] = new Parameter(
                                 name: $property,
                                 in: 'query',
                                 required: true,
@@ -407,21 +392,58 @@ class GenerateTypeCommand extends Command
                                 $methodSchemas = $methodDocsSchemas;
 
                                 $this->info("> > > Native method returns list data type => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
-                            } else if (is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\LengthAwarePaginator')) {
+                            } else if (
+                                is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\Paginator')
+                                || is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\LengthAwarePaginator')
+                                || is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\CursorPaginator')
+                            ) {
                                 $methodSchemas = $methodDocsSchemas;
 
-
-                                $parameters[] = new Parameter(
-                                    name: 'page',
-                                    in: 'query',
-                                    required: true,
-                                    schema: new Schema(
-                                        type: 'integer'
-                                    ),
-                                    description: ''
-                                );
-
                                 $this->info("> > > Native method return paginator => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
+                            } else if (
+                                is_subclass_of($methodTypeName, 'Illuminate\Http\Resources\Json\ResourceCollection')
+                                || is_subclass_of($methodTypeName, 'Illuminate\Http\Resources\Json\JsonResource')
+                            ) {
+                                $methodAllowNull = $methodType->allowsNull();
+                                if ($methodAllowNull) {
+                                    $methodNullable = true;
+                                }
+
+                                $parts = explode('\\', $methodTypeName);
+                                $name = end($parts);
+                                $classFullname = ClassHelper::getClassFullname($name, $classReflection);
+
+
+                                    $resourceClass = new \ReflectionClass($classFullname);
+                                    $toArrayMethod = $resourceClass->getMethod('toArray');
+                                    $toArrayMethodDocs = $toArrayMethod->getDocComment();
+                                    if ($toArrayMethodDocs) {
+                                        $toArrayMethodDocBlock = DocBlockFactory::createInstance()->create($toArrayMethodDocs);
+                                        $returnTags = $toArrayMethodDocBlock->getTagsByName('return');
+
+                                        /** @var Return_ $propertyTag */
+                                        foreach ($returnTags as $returnTag) {
+
+                                            $spec->putComponentSchema($name, function () use ($name, $classFullname, $spec, $methodNullable, $returnTag, $resourceClass) {
+                                                return new ComponentSchemaItem(
+                                                    id: $name,
+                                                    schema: DocBlockHelper::parseTagType($returnTag->getType(), $methodNullable, $resourceClass, $spec)
+                                                );
+                                            });
+
+                                            $methodSchemas[] = new ObjectSchema(
+                                                properties: [
+                                                    'data' => new RefSchema(
+                                                        ref: $name,
+                                                        nullable: $methodNullable
+                                                    )
+                                                ]
+                                            );
+                                        }
+                                    }
+
+                                    $this->info("> > > Native method return resource => try to parse the resource");
+
                             } else if (class_exists($methodTypeName)) {
                                 $methodAllowNull = $methodType->allowsNull();
                                 if ($methodAllowNull) {
@@ -430,20 +452,31 @@ class GenerateTypeCommand extends Command
 
                                 $parts = explode('\\', $methodTypeName);
                                 $className = end($parts);
+                                $classFullname = ClassHelper::getClassFullname($className, $classReflection);
 
-                                $spec->putComponentSchema($className, function () use ($className, $methodTypeName, $spec, $methodAllowNull) {
-                                    return new ComponentSchemaItem(
-                                        id: $className,
-                                        schema: ClassHelper::parseClass($methodTypeName, $spec, false)
+                                if (
+                                    $classFullname === 'Illuminate\Http\Resources\Json\ResourceCollection'
+                                    || $classFullname === 'Illuminate\Http\Resources\Json\JsonResource'
+                                ) {
+                                    $methodSchemas = $methodDocsSchemas;
+                                    $this->info("> > > Native method return generic resource => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
+                                } else {
+
+                                    $spec->putComponentSchema($className, function () use ($className, $methodTypeName, $spec, $methodAllowNull) {
+                                        return new ComponentSchemaItem(
+                                            id: $className,
+                                            schema: ClassHelper::parseClass($methodTypeName, $spec, false)
+                                        );
+                                    });
+
+                                    $methodSchemas[] = new RefSchema(
+                                        ref: $className,
+                                        nullable: $methodAllowNull
                                     );
-                                });
 
-                                $methodSchemas[] = new RefSchema(
-                                    ref: $className,
-                                    nullable: $methodAllowNull
-                                );
+                                    $this->info("> > > Native method return class $methodTypeName ($className) => Collected " . count($methodSchemas) . " method return(s) from Reflection");
+                                }
 
-                                $this->info("> > > Native method return class $methodTypeName ($className) => Collected " . count($methodSchemas) . " method return(s) from Reflection");
                             } else {
                                 throw new \Exception("Cannot understand route method return type {$route->getName()}-{$route->getActionMethod()}");
                             }
@@ -456,7 +489,7 @@ class GenerateTypeCommand extends Command
                     }
 
 
-                    $op->putParameters($parameters);
+                    $op->putParameters(array_values($parameters));
 
                     $this->info("> > > Recorded " . count($parameters) . " parameter(s)");
 
