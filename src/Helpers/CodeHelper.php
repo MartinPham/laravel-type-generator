@@ -2,42 +2,29 @@
 
 namespace MartinPham\TypeGenerator\Helpers;
 
-use Illuminate\Database\Eloquent\Model as EloquentModel;
-use MartinPham\TypeGenerator\Definitions\Items\ComponentSchemaItem;
-use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
-use MartinPham\TypeGenerator\Definitions\Schemas\StringSchema;
-use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
-use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
-use phpDocumentor\Reflection\DocBlock\Tags\Var_;
-use phpDocumentor\Reflection\DocBlockFactory;
+use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ClassConstFetch;
 use PhpParser\Node\Expr\ConstFetch;
 use PhpParser\Node\Expr\Variable;
-use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
-use PhpParser\Node\NullableType;
 use PhpParser\Node\Scalar\DNumber;
 use PhpParser\Node\Scalar\LNumber;
 use PhpParser\Node\Scalar\String_;
-use PhpParser\Node\Stmt\Property;
-use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Class_;
+use PhpParser\Node\Stmt\ClassMethod;
+use PhpParser\Node\Stmt\Property;
 use PhpParser\Node\Stmt\Return_;
 use PhpParser\NodeFinder;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor;
-use PhpParser\NodeVisitorAbstract;
 use PhpParser\ParserFactory;
-use PHPStan\Type\UnionType;
 use ReflectionClass;
-use ReflectionProperty;
-use ReflectionUnionType;
 
 class CodeHelper
 {
 
-    public static function getImports($contents): array
+    public static function getImports(string $contents): array
     {
         // Only parse up to the class/interface/trait definition
         $classPos = strpos($contents, 'class');
@@ -81,13 +68,11 @@ class CodeHelper
                             $mapped[$class] = $base . '\\' . $class;
                         }
                     }
-                }
-                // Aliased import
+                } // Aliased import
                 elseif (stripos($part, ' as ') !== false) {
                     [$fqcn, $alias] = preg_split('/\s+as\s+/i', $part);
                     $mapped[trim($alias)] = trim($fqcn);
-                }
-                // Simple import
+                } // Simple import
                 else {
                     $fqcn = trim($part);
                     $segments = explode('\\', $fqcn);
@@ -100,14 +85,8 @@ class CodeHelper
         return $mapped;
     }
 
-    public static function createAST(\ReflectionClass $classReflection) {
-        $parser = (new ParserFactory())->createForNewestSupportedVersion();
-        $contents = file_get_contents($classReflection->getFileName());
-
-        return $parser->parse($contents);
-    }
-
-    public static function parseClassNodes(\ReflectionClass $classReflection, callable $handleProperty, callable $handleMethod) {
+    public static function parseClassNodes(ReflectionClass $classReflection, callable $handleProperty, callable $handleMethod): void
+    {
         $nodeFinder = new NodeFinder();
         $ast = CodeHelper::createAST($classReflection);
         $classNodes = $nodeFinder->findInstanceOf($ast, Class_::class);
@@ -126,8 +105,15 @@ class CodeHelper
         }
     }
 
+    public static function createAST(ReflectionClass $classReflection)
+    {
+        $parser = (new ParserFactory())->createForNewestSupportedVersion();
+        $contents = file_get_contents($classReflection->getFileName());
 
-    public static function parseClassCode(\ReflectionClass $classReflection, NodeVisitor $visitor)
+        return $parser->parse($contents);
+    }
+
+    public static function parseClassCode(ReflectionClass $classReflection, NodeVisitor $visitor)
     {
         $ast = self::createAST($classReflection);
 
@@ -138,7 +124,7 @@ class CodeHelper
         return $visitor->results;
     }
 
-    public static function extractArgumentValue($arg)
+    public static function extractArgumentValue(Expr $arg)
     {
         if ($arg instanceof ClassConstFetch) {
             if ($arg->class instanceof Name && $arg->name->toString() === 'class') {
@@ -155,7 +141,7 @@ class CodeHelper
         return 'unknown';
     }
 
-    public static function extractStringValue($node)
+    public static function extractStringValue(Expr $node)
     {
         if ($node instanceof String_) {
             return $node->value;
@@ -163,7 +149,7 @@ class CodeHelper
         return null;
     }
 
-    public static function extractArrayValues($node)
+    public static function extractArrayValues(Expr $node): array
     {
         if (!($node instanceof Array_)) {
             return [];
@@ -179,7 +165,7 @@ class CodeHelper
         return $values;
     }
 
-    public static function extractAssocArrayValues($node)
+    public static function extractAssocArrayValues(Expr $node): array
     {
         if (!($node instanceof Array_)) {
             return [];
@@ -199,7 +185,7 @@ class CodeHelper
         return $values;
     }
 
-    public static function extractScalarValue($node)
+    public static function extractScalarValue(Expr $node)
     {
         if ($node instanceof String_) {
             return $node->value;
@@ -214,23 +200,5 @@ class CodeHelper
         return null;
     }
 
-    public static function getTypeString($type)
-    {
-        if ($type instanceof Name) {
-            return $type->toString();
-        } elseif ($type instanceof Identifier) {
-            return $type->toString();
-        } elseif ($type instanceof UnionType) {
-            $types = [];
-            foreach ($type->getTypes() as $unionType) {
-                $types[] = self::getTypeString($unionType);
-            }
-            return implode('|', $types);
-        } elseif ($type instanceof NullableType) {
-            return self::getTypeString($type->type) . '|null';
-        }
-
-        return 'unknown';
-    }
 
 }

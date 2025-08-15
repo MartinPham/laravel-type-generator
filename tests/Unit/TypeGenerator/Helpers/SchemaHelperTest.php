@@ -2,9 +2,9 @@
 
 namespace Tests\Unit\TypeGenerator\Helpers;
 
-use MartinPham\TypeGenerator\Helpers\SchemaHelper;
-use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
 use MartinPham\TypeGenerator\Definitions\Schemas\OneOfSchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
+use MartinPham\TypeGenerator\Helpers\SchemaHelper;
 use PHPUnit\Framework\TestCase;
 
 class SchemaHelperTest extends TestCase

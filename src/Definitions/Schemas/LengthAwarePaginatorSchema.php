@@ -31,64 +31,64 @@ class LengthAwarePaginatorSchema
         */
 
         $this->properties = [
-                'current_page' => new Schema(
-                    type: 'integer'
-                ),
-                'first_page_url' => new Schema(
-                    type: 'string'
-                ),
-                'from' => new Schema(
-                    type: 'integer'
-                ),
-                'last_page' => new Schema(
-                    type: 'integer'
-                ),
-                'last_page_url' => new Schema(
-                    type: 'string'
-                ),
-                'links' => new ArraySchema(
-                    items: (new ObjectSchema())
-                        ->putPropertyItem(new PropertyItem(
-                            id: 'url',
-                            schema: new Schema(
-                                type: 'string'
-                            )
-                        ))
-                        ->putPropertyItem(new PropertyItem(
-                            id: 'label',
-                            schema: new Schema(
-                                type: 'string'
-                            )
-                        ))
-                        ->putPropertyItem(new PropertyItem(
-                            id: 'active',
-                            schema: new Schema(
-                                type: 'boolean'
-                            )
-                        ))
-                ),
-                'next_page_url' => new Schema(
-                    type: 'string'
-                ),
-                'path' => new Schema(
-                    type: 'string'
-                ),
-                'per_page' => new Schema(
-                    type: 'integer'
-                ),
-                'prev_page_url' => new Schema(
-                    type: 'string'
-                ),
-                'to' => new Schema(
-                    type: 'integer'
-                ),
-                'total' => new Schema(
-                    type: 'integer'
-                ),
-                'data' => new ArraySchema(
-                    items: $schema
-                )
-            ];
+            'current_page' => new Schema(
+                type: 'integer'
+            ),
+            'first_page_url' => new Schema(
+                type: 'string'
+            ),
+            'from' => new Schema(
+                type: 'integer'
+            ),
+            'last_page' => new Schema(
+                type: 'integer'
+            ),
+            'last_page_url' => new Schema(
+                type: 'string'
+            ),
+            'links' => new ArraySchema(
+                items: (new ObjectSchema())
+                    ->putPropertyItem(new PropertyItem(
+                        id: 'url',
+                        schema: new Schema(
+                            type: 'string'
+                        )
+                    ))
+                    ->putPropertyItem(new PropertyItem(
+                        id: 'label',
+                        schema: new Schema(
+                            type: 'string'
+                        )
+                    ))
+                    ->putPropertyItem(new PropertyItem(
+                        id: 'active',
+                        schema: new Schema(
+                            type: 'boolean'
+                        )
+                    ))
+            ),
+            'next_page_url' => new Schema(
+                type: 'string'
+            ),
+            'path' => new Schema(
+                type: 'string'
+            ),
+            'per_page' => new Schema(
+                type: 'integer'
+            ),
+            'prev_page_url' => new Schema(
+                type: 'string'
+            ),
+            'to' => new Schema(
+                type: 'integer'
+            ),
+            'total' => new Schema(
+                type: 'integer'
+            ),
+            'data' => new ArraySchema(
+                items: $schema
+            )
+        ];
 
 
         if ($nullable) {

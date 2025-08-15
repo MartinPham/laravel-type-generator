@@ -1,9 +1,10 @@
-**TLDR:** If you've ever wanted fully type-safe integration between your Laravel backend and your frontend (whether that's API consumers or Inertia.js apps), this package might save you a ton of time. 
-
+**TLDR:** If you've ever wanted fully type-safe integration between your Laravel backend and your frontend (whether
+that's API consumers or Inertia.js apps), this package might save you a ton of time.
 
 ## What It Does
 
-The `laravel-type-generator` package scans your Laravel routes, controllers, models, DTOs, and their properties, methods, docblocks, and PHP source code. It then automatically generates:
+The `laravel-type-generator` package scans your Laravel routes, controllers, models, DTOs, and their properties,
+methods, docblocks, and PHP source code. It then automatically generates:
 
 - TypeScript types from your Laravel routes
 - OpenAPI specifications for API documentation
@@ -22,18 +23,21 @@ composer require martinpham/laravel-type-generator
 ```
 
 Publish the config:
+
 ```bash
 php artisan vendor:publish --tag="type-generator"
 ```
 
 Then run:
+
 ```bash
 php artisan types:generate
 ```
 
 ## Configuration
 
-The package is flexible. In the config file, you can customize what gets generated and where it goes. Here's a practical example showing how to generate:
+The package is flexible. In the config file, you can customize what gets generated and where it goes. Here's a practical
+example showing how to generate:
 
 - An OpenAPI specification JSON file for routes matching `/_api/*`
 - TypeScript types for Inertia.js routes and template variables, for controllers matching `App\Http\Controllers\Web\*`
@@ -75,18 +79,17 @@ class PlaygroundApiController extends Controller
 1. The package analyzes the `findUser` method's input parameter (`User $user`) and return type (`User`).
 2. It automatically generates an OpenAPI operation for this route with `$user` as a parameter.
 3. It creates a `User` schema for both request and response types.
-4. Since your User model has relationships (like Address and Country), it recursively generates schemas for those related models too — so your OpenAPI spec and TypeScript types reflect the complete data structure.
+4. Since your User model has relationships (like Address and Country), it recursively generates schemas for those
+   related models too — so your OpenAPI spec and TypeScript types reflect the complete data structure.
 
 This means your frontend gets fully typed models, including nested relationships, without any extra manual work!
 
-
 ![OpenAPI](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/iee1gqc0ytpk1f3x5gtx.png)
-
-
 
 ## Seamless Integration with Orval for Type-Safe API Clients & Inertia template
 
-Once `laravel-type-generator` creates your OpenAPI spec, you can feed it directly into Orval to automatically generate TypeScript types and API clients.
+Once `laravel-type-generator` creates your OpenAPI spec, you can feed it directly into Orval to automatically generate
+TypeScript types and API clients.
 
 Here's what Orval would produce from the generated spec:
 
@@ -125,14 +128,14 @@ export const apiPlaygroundUsers = (
 - Your API calls are fully typed, with correct parameter and response types
 - No more guesswork or brittle `any` types when consuming your Laravel backend APIs
 
-This creates a tight feedback loop between your backend and frontend, boosting developer confidence and reducing bugs from mismatched data structures.
+This creates a tight feedback loop between your backend and frontend, boosting developer confidence and reducing bugs
+from mismatched data structures.
 
 ### Inertia template
+
 On Inertia side, you will receive exactly the types which were returned by the route
 
 ![Inertia](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/6vyfsggfg1zt70oz2oae.png)
-
-
 
 ## Full Support for Various Data Types
 
@@ -143,7 +146,8 @@ The `laravel-type-generator` isn't limited to just Eloquent models. It also supp
 - API Resources
 - Your own custom-defined docblocks
 
-To give you more control over the generated OpenAPI spec, you can use special docblock annotations in your controller methods:
+To give you more control over the generated OpenAPI spec, you can use special docblock annotations in your controller
+methods:
 
 - `@id` — Overrides the default operationId (otherwise it's derived from the route name)
 - `@tag` — Adds tags to group and organize your API operations
@@ -183,15 +187,18 @@ public function manything(Address $address): array
 
 ### Here's what's happening:
 
-The package reads the docblocks and uses PHP's native type hints to generate detailed, nested TypeScript types and OpenAPI schemas.
+The package reads the docblocks and uses PHP's native type hints to generate detailed, nested TypeScript types and
+OpenAPI schemas.
 
 Collections, paginated results, arrays with nested objects — everything gets parsed and converted correctly.
 
-This means you can describe even very complex API responses in your controller methods and get fully typed clients on the frontend without any manual synchronization.
+This means you can describe even very complex API responses in your controller methods and get fully typed clients on
+the frontend without any manual synchronization.
 
 ## Specifying Request Parameters
 
-Your API request parameters can come from different places, and `laravel-type-generator` supports all of them to generate accurate types:
+Your API request parameters can come from different places, and `laravel-type-generator` supports all of them to
+generate accurate types:
 
 ### 1. Route Path Parameters
 
@@ -199,7 +206,8 @@ Simply define parameters in your route URL, like `/users/{user}/`. These will be
 
 ### 2. FormRequest Subclasses
 
-You can define a FormRequest class with typed properties and validation rules. The package inspects both your docblock properties and validation rules to generate the parameter types.
+You can define a FormRequest class with typed properties and validation rules. The package inspects both your docblock
+properties and validation rules to generate the parameter types.
 
 Example:
 

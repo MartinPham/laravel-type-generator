@@ -14,9 +14,10 @@ class OpenAPI implements Writer
     public array $components;
 
     public function __construct(
-        Spec $spec,
+        Spec  $spec,
         array $options
-    ) {
+    )
+    {
         $this->openapi = $options['openapi'];
         $this->info = new Info(
             title: $options['title'],
@@ -31,7 +32,8 @@ class OpenAPI implements Writer
         $this->components = $spec->components ?? [];
     }
 
-    public function output(): string {
+    public function output(): string
+    {
         return json_encode($this, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
     }
 }

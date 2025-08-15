@@ -2,48 +2,26 @@
 
 namespace MartinPham\TypeGenerator\Helpers;
 
-use Illuminate\Database\Eloquent\Model as EloquentModel;
+use Exception;
 use MartinPham\TypeGenerator\Definitions\Items\ComponentSchemaItem;
-use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
-use MartinPham\TypeGenerator\Definitions\Schemas\StringSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
+use MartinPham\TypeGenerator\Definitions\Schemas\StringSchema;
 use phpDocumentor\Reflection\DocBlock\Tags\Property;
 use phpDocumentor\Reflection\DocBlock\Tags\Var_;
 use phpDocumentor\Reflection\DocBlockFactory;
-use PhpParser\Node;
-use PhpParser\NodeTraverser;
-use PhpParser\NodeVisitor;
-use PhpParser\NodeVisitorAbstract;
-use PhpParser\ParserFactory;
 use ReflectionClass;
+use ReflectionNamedType;
 use ReflectionProperty;
 use ReflectionUnionType;
 
 class ClassHelper
 {
-    public static function getClassFullname(string $className, \ReflectionClass $inClassReflection): string {
-        $namespace = $inClassReflection->getNamespaceName();
-        $imports = CodeHelper::getImports(file_get_contents($inClassReflection->getFileName()));
-
-        $classFullname = $className;
-
-        if (isset($imports[$className])) {
-            $classFullname = $imports[$className];
-        } else if (!class_exists($className)) {
-            if (!class_exists($namespace . '\\' . $className)) {
-                throw new \Exception("Cannot locate class $className");
-            }
-            $classFullname = $namespace . '\\' . $className;
-        }
-
-        return $classFullname;
-    }
-
-    public static function parseClass(string $classFullname, $nullable, $onlyFromDocblock, $spec)
+    public static function parseClass(string $classFullname, bool $nullable, bool $onlyFromDocblock, SchemaHelper $schemaHelper)
     {
-        if (is_subclass_of($classFullname, EloquentModel::class)) {
-            return ModelHelper::parseModel($classFullname, $nullable, $spec);
+        if (is_subclass_of($classFullname, 'Illuminate\Database\Eloquent\Model')) {
+            return ModelHelper::parseModel($classFullname, $nullable, $schemaHelper);
         }
         if (is_subclass_of($classFullname, 'DateTimeInterface')) {
             return new StringSchema(
@@ -64,7 +42,7 @@ class ClassHelper
 
             /** @var Property $propertyTag */
             foreach ($propertyTags as $propertyTag) {
-                $docblockProperties[$propertyTag->getVariableName()] = DocBlockHelper::parseTagType($propertyTag->getType(), $nullable, $classReflection, $spec);
+                $docblockProperties[$propertyTag->getVariableName()] = DocBlockHelper::parseTagType($propertyTag->getType(), $nullable, $classReflection, $schemaHelper);
             }
         }
 
@@ -85,7 +63,7 @@ class ClassHelper
 
                 $propertySchemas = [];
 
-                /** @var \ReflectionNamedType|null $propertyType */
+                /** @var ReflectionNamedType|null $propertyType */
                 foreach ($propertyTypes as $propertyType) {
                     if ($propertyType !== null) {
                         $propertyTypeName = $propertyType->getName();
@@ -101,7 +79,7 @@ class ClassHelper
 
                                 /** @var Var_ $varTag */
                                 foreach ($varTags as $varTag) {
-                                    $propertySchemas[] = DocBlockHelper::parseTagType($varTag->getType(), false, $classReflection, $spec);
+                                    $propertySchemas[] = DocBlockHelper::parseTagType($varTag->getType(), false, $classReflection, $schemaHelper);
                                 }
                             }
                         } else if ($propertyTypeName === 'bool') {
@@ -136,10 +114,10 @@ class ClassHelper
                                 );
                             }
 
-                            $spec->putComponentSchema($name, function () use ($name, $classFullname, $spec, $nullable) {
+                            $schemaHelper->registerSchema($name, function () use ($name, $classFullname, $schemaHelper, $nullable) {
                                 return new ComponentSchemaItem(
                                     id: $name,
-                                    schema: ClassHelper::parseClass((string) $classFullname, $nullable, false, $spec)
+                                    schema: ClassHelper::parseClass($classFullname, $nullable, false, $schemaHelper)
                                 );
                             });
 
@@ -157,7 +135,7 @@ class ClassHelper
                         $properties[$propertyName] = $docblockProperties[$propertyName];
                         unset($docblockProperties[$propertyName]);
                     } else {
-                        throw new \Exception("Cannot undestand class structure - $classFullname::$propertyName");
+                        throw new Exception("Cannot undestand class structure - $classFullname::$propertyName");
                     }
 
                 } else {
@@ -173,5 +151,24 @@ class ClassHelper
             properties: $properties,
             nullable: $nullable
         );
+    }
+
+    public static function getClassFullname(string $className, ReflectionClass $inClassReflection): string
+    {
+        $namespace = $inClassReflection->getNamespaceName();
+        $imports = CodeHelper::getImports(file_get_contents($inClassReflection->getFileName()));
+
+        $classFullname = $className;
+
+        if (isset($imports[$className])) {
+            $classFullname = $imports[$className];
+        } else if (!class_exists($className)) {
+            if (!class_exists($namespace . '\\' . $className)) {
+                throw new Exception("Cannot locate class $className");
+            }
+            $classFullname = $namespace . '\\' . $className;
+        }
+
+        return $classFullname;
     }
 }

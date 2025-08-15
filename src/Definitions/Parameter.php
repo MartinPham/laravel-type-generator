@@ -1,4 +1,5 @@
 <?php
+
 namespace MartinPham\TypeGenerator\Definitions;
 
 class Parameter
@@ -6,8 +7,10 @@ class Parameter
     public function __construct(
         public string $name,
         public string $in,
-        public bool $required,
-        public $schema,
+        public bool   $required,
+        public        $schema,
         public string $description = ''
-    ) {}
+    )
+    {
+    }
 }

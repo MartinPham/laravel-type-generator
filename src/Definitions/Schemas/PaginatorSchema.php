@@ -2,8 +2,6 @@
 
 namespace MartinPham\TypeGenerator\Definitions\Schemas;
 
-use MartinPham\TypeGenerator\Definitions\Items\PropertyItem;
-
 class PaginatorSchema
 {
     public string $type = 'object';
@@ -28,37 +26,37 @@ class PaginatorSchema
         */
 
         $this->properties = [
-                'current_page' => new Schema(
-                    type: 'integer'
-                ),
-                'current_page_url' => new Schema(
-                    type: 'string'
-                ),
-                'first_page_url' => new Schema(
-                    type: 'string'
-                ),
-                'from' => new Schema(
-                    type: 'integer'
-                ),
-                'next_page_url' => new Schema(
-                    type: 'string'
-                ),
-                'path' => new Schema(
-                    type: 'string'
-                ),
-                'per_page' => new Schema(
-                    type: 'integer'
-                ),
-                'prev_page_url' => new Schema(
-                    type: 'string'
-                ),
-                'to' => new Schema(
-                    type: 'integer'
-                ),
-                'data' => new ArraySchema(
-                    items: $schema
-                )
-            ];
+            'current_page' => new Schema(
+                type: 'integer'
+            ),
+            'current_page_url' => new Schema(
+                type: 'string'
+            ),
+            'first_page_url' => new Schema(
+                type: 'string'
+            ),
+            'from' => new Schema(
+                type: 'integer'
+            ),
+            'next_page_url' => new Schema(
+                type: 'string'
+            ),
+            'path' => new Schema(
+                type: 'string'
+            ),
+            'per_page' => new Schema(
+                type: 'integer'
+            ),
+            'prev_page_url' => new Schema(
+                type: 'string'
+            ),
+            'to' => new Schema(
+                type: 'integer'
+            ),
+            'data' => new ArraySchema(
+                items: $schema
+            )
+        ];
 
 
         if ($nullable) {

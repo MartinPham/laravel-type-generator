@@ -3,7 +3,6 @@
 namespace Tests\Unit\TypeGenerator\Helpers;
 
 use MartinPham\TypeGenerator\Helpers\CodeHelper;
-use PHPUnit\Framework\TestCase;
 use PhpParser\Node;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ArrayItem;
@@ -12,13 +11,12 @@ use PhpParser\Node\Expr\ConstFetch;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
-use PhpParser\Node\NullableType;
 use PhpParser\Node\Scalar\DNumber;
 use PhpParser\Node\Scalar\LNumber;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\Property;
-use PhpParser\NodeVisitor;
 use PhpParser\NodeVisitor\NodeVisitorAbstract;
+use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
 class CodeHelperTest extends TestCase
@@ -327,55 +325,6 @@ class CodeHelperTest extends TestCase
     }
 
     /**
-     * Test getTypeString method with Name
-     */
-    public function test_get_type_string_name()
-    {
-        $type = new Name('TestType');
-
-        $typeString = CodeHelper::getTypeString($type);
-
-        $this->assertEquals('TestType', $typeString);
-    }
-
-    /**
-     * Test getTypeString method with Identifier
-     */
-    public function test_get_type_string_identifier()
-    {
-        $type = new Identifier('string');
-
-        $typeString = CodeHelper::getTypeString($type);
-
-        $this->assertEquals('string', $typeString);
-    }
-
-    /**
-     * Test getTypeString method with NullableType
-     */
-    public function test_get_type_string_nullable()
-    {
-        $innerType = new Identifier('string');
-        $type = new NullableType($innerType);
-
-        $typeString = CodeHelper::getTypeString($type);
-
-        $this->assertEquals('string|null', $typeString);
-    }
-
-    /**
-     * Test getTypeString method with unknown type
-     */
-    public function test_get_type_string_unknown()
-    {
-        $type = new Variable('testVar');
-
-        $typeString = CodeHelper::getTypeString($type);
-
-        $this->assertEquals('unknown', $typeString);
-    }
-
-    /**
      * Test createAST and parseClassCode methods
      * This test is skipped because it requires actual PHP files
      */
@@ -408,7 +357,8 @@ class CodeHelperTest extends TestCase
         $visitor = new class extends NodeVisitorAbstract {
             public $results = [];
 
-            public function leaveNode(Node $node) {
+            public function leaveNode(Node $node)
+            {
                 if ($node instanceof Property) {
                     foreach ($node->props as $prop) {
                         $this->results[] = $prop->name->toString();

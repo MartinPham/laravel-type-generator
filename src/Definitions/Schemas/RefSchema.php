@@ -1,13 +1,17 @@
 <?php
+
 namespace MartinPham\TypeGenerator\Definitions\Schemas;
 
-#[\AllowDynamicProperties]
+use AllowDynamicProperties;
+
+#[AllowDynamicProperties]
 class RefSchema
 {
     public function __construct(
         string $ref,
-        bool $nullable = false
-    ) {
+        bool   $nullable = false
+    )
+    {
         $this->{'$ref'} = '#/components/schemas/' . $ref;
 
         if ($nullable) {

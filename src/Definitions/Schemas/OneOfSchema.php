@@ -1,13 +1,17 @@
 <?php
+
 namespace MartinPham\TypeGenerator\Definitions\Schemas;
 
-#[\AllowDynamicProperties]
+use AllowDynamicProperties;
+
+#[AllowDynamicProperties]
 class OneOfSchema
 {
     public function __construct(
         public array $oneOf = [],
-        bool $nullable = false
-    ) {
+        bool         $nullable = false
+    )
+    {
         if ($nullable) {
             $this->nullable = $nullable;
         }

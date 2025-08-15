@@ -15,21 +15,21 @@
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script>
     function getCookie(name) {
-        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
         return match ? decodeURIComponent(match[2]) : null;
     }
 
     window.onload = () => {
         window.ui = SwaggerUIBundle({
             url: '{{ $json_url }}',
-            dom_id: '#swagger-ui',
+            dom_id: "#swagger-ui",
             requestInterceptor: (request) => {
-                const xsrfToken = getCookie('XSRF-TOKEN');
+                const xsrfToken = getCookie("XSRF-TOKEN");
                 if (xsrfToken) {
-                    request.headers['X-XSRF-TOKEN'] = xsrfToken;
+                    request.headers["X-XSRF-TOKEN"] = xsrfToken;
                 }
                 return request;
-            },
+            }
         });
     };
 </script>

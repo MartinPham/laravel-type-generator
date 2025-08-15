@@ -1,16 +1,19 @@
 <?php
+
 namespace MartinPham\TypeGenerator\Definitions\Items;
 
 class ContentItem
 {
     public function __construct(
         public string $contentType,
-        public $schema,
-        public array $examples = []
-    ) {}
+        public        $schema,
+        public array  $examples = []
+    )
+    {
+    }
 
 
-    public function putExample(ContentExampleItem $item)
+    public function putExample(ContentExampleItem $item): static
     {
         $this->examples[$item->name]['value'] = $item->value;
         return $this;

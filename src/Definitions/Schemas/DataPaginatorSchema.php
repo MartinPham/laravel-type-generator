@@ -2,8 +2,6 @@
 
 namespace MartinPham\TypeGenerator\Definitions\Schemas;
 
-use MartinPham\TypeGenerator\Definitions\Items\PropertyItem;
-
 class DataPaginatorSchema
 {
     public string $type = 'object';
@@ -24,19 +22,19 @@ class DataPaginatorSchema
         unset($simpleSchema->properties['links']);
 
         $this->properties = [
-                'links' => $links,
-                'data' => $data,
-                'meta' => new OneOfSchema(
-                    oneOf: [
-                        new ObjectSchema(
-                            properties: $lengthAwareSchema->properties
-                        ),
-                        new ObjectSchema(
-                            properties: $simpleSchema->properties
-                        )
-                    ]
-                )
-            ];
+            'links' => $links,
+            'data' => $data,
+            'meta' => new OneOfSchema(
+                oneOf: [
+                    new ObjectSchema(
+                        properties: $lengthAwareSchema->properties
+                    ),
+                    new ObjectSchema(
+                        properties: $simpleSchema->properties
+                    )
+                ]
+            )
+        ];
 
 
         if ($nullable) {

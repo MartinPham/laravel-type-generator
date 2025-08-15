@@ -2,8 +2,6 @@
 
 namespace MartinPham\TypeGenerator\Definitions\Schemas;
 
-use MartinPham\TypeGenerator\Definitions\Items\PropertyItem;
-
 class CursorPaginatorSchema
 {
     public string $type = 'object';
@@ -25,28 +23,28 @@ class CursorPaginatorSchema
         */
 
         $this->properties = [
-                'path' => new Schema(
-                    type: 'string'
-                ),
-                'per_page' => new Schema(
-                    type: 'integer'
-                ),
-                'next_cursor' => new Schema(
-                    type: 'string'
-                ),
-                'next_page_url' => new Schema(
-                    type: 'string'
-                ),
-                'prev_cursor' => new Schema(
-                    type: 'integer'
-                ),
-                'prev_page_url' => new Schema(
-                    type: 'string'
-                ),
-                'data' => new ArraySchema(
-                    items: $schema
-                )
-            ];
+            'path' => new Schema(
+                type: 'string'
+            ),
+            'per_page' => new Schema(
+                type: 'integer'
+            ),
+            'next_cursor' => new Schema(
+                type: 'string'
+            ),
+            'next_page_url' => new Schema(
+                type: 'string'
+            ),
+            'prev_cursor' => new Schema(
+                type: 'integer'
+            ),
+            'prev_page_url' => new Schema(
+                type: 'string'
+            ),
+            'data' => new ArraySchema(
+                items: $schema
+            )
+        ];
 
 
         if ($nullable) {

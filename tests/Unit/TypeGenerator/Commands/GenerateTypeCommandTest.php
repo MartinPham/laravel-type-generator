@@ -2,37 +2,18 @@
 
 namespace Tests\Unit\TypeGenerator\Commands;
 
-use Illuminate\Console\Command;
-use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Routing\Route;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 use MartinPham\TypeGenerator\Commands\GenerateTypeCommand;
-use MartinPham\TypeGenerator\Writers\OpenAPI\OpenAPI;
-use PHPUnit\Framework\TestCase;
 use Mockery;
+use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 
 class GenerateTypeCommandTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        // This test requires a Laravel application context
-        // In a real test, we would use the Laravel TestCase
-        if (!function_exists('app') || !class_exists('Illuminate\Foundation\Application')) {
-            $this->markTestSkipped('Laravel application is required for this test');
-        }
-    }
-
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
-    }
-
     /**
      * Test the handle method with a basic configuration
      */
@@ -205,7 +186,7 @@ class GenerateTypeCommandTest extends TestCase
         $command = new GenerateTypeCommand();
 
         // Use reflection to access the protected method
-        $reflection = new \ReflectionClass($command);
+        $reflection = new ReflectionClass($command);
         $method = $reflection->getMethod('strStartsWith');
         $method->setAccessible(true);
 
@@ -220,5 +201,22 @@ class GenerateTypeCommandTest extends TestCase
         // Test with empty needle
         $this->assertFalse($method->invoke($command, 'hello world', ''));
         $this->assertFalse($method->invoke($command, 'hello world', []));
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // This test requires a Laravel application context
+        // In a real test, we would use the Laravel TestCase
+        if (!function_exists('app') || !class_exists('Illuminate\Foundation\Application')) {
+            $this->markTestSkipped('Laravel application is required for this test');
+        }
+    }
+
+    protected function tearDown(): void
+    {
+        Mockery::close();
+        parent::tearDown();
     }
 }

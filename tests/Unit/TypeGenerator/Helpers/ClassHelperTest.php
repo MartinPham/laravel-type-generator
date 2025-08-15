@@ -2,38 +2,19 @@
 
 namespace Tests\Unit\TypeGenerator\Helpers;
 
-use MartinPham\TypeGenerator\Helpers\ClassHelper;
-use MartinPham\TypeGenerator\Helpers\CodeHelper;
-use MartinPham\TypeGenerator\Helpers\DocBlockHelper;
-use MartinPham\TypeGenerator\Helpers\ModelHelper;
-use MartinPham\TypeGenerator\Helpers\SchemaHelper;
-use MartinPham\TypeGenerator\Writers\OpenAPI\OpenAPI;
+use DateTime;
+use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
 use MartinPham\TypeGenerator\Definitions\Schemas\StringSchema;
-use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
-use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
-use MartinPham\TypeGenerator\Definitions\Schemas\ArraySchema;
-use MartinPham\TypeGenerator\Definitions\Items\ComponentSchemaItem;
+use MartinPham\TypeGenerator\Definitions\Spec;
+use MartinPham\TypeGenerator\Helpers\ClassHelper;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
-use ReflectionProperty;
-use ReflectionUnionType;
-use DateTime;
-use MartinPham\TypeGenerator\Definitions\Spec;
 
 class ClassHelperTest extends TestCase
 {
     private $specMock;
     private $classReflectionMock;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->specMock = $this->createMock(Spec::class);
-        $this->classReflectionMock = $this->createMock(ReflectionClass::class);
-    }
-
 
     /**
      * Test parseClass with a DateTime class
@@ -131,6 +112,7 @@ class ClassHelperTest extends TestCase
         // Clean up
         unlink($tempFile);
     }
+
     /**
      * Test getClassFullname with a class in the same namespace
      */
@@ -301,6 +283,14 @@ class ClassHelperTest extends TestCase
 
         // Clean up
         unlink($tempFile);
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->specMock = $this->createMock(Spec::class);
+        $this->classReflectionMock = $this->createMock(ReflectionClass::class);
     }
 
 }

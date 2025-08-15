@@ -3,8 +3,6 @@
 namespace MartinPham\TypeGenerator\Definitions\Schemas;
 
 
-use MartinPham\TypeGenerator\Definitions\Items\PropertyItem;
-
 class DataCursorPaginatorSchema
 {
     public string $type = 'object';
@@ -25,7 +23,6 @@ class DataCursorPaginatorSchema
                 properties: $cursorSchema->properties
             ),
         ];
-
 
 
         if ($nullable) {

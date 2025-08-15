@@ -2,40 +2,22 @@
 
 namespace Tests\Unit\TypeGenerator\Helpers;
 
-use MartinPham\TypeGenerator\Helpers\DocBlockHelper;
-use MartinPham\TypeGenerator\Writers\OpenAPI\OpenAPI;
-use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
-use MartinPham\TypeGenerator\Definitions\Schemas\StringSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\ArraySchema;
-use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
-use MartinPham\TypeGenerator\Definitions\Schemas\OneOfSchema;
-use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
 use MartinPham\TypeGenerator\Definitions\Spec;
-use PHPUnit\Framework\TestCase;
-use phpDocumentor\Reflection\DocBlockFactory;
-use phpDocumentor\Reflection\Types\String_;
-use phpDocumentor\Reflection\Types\Integer;
-use phpDocumentor\Reflection\Types\Float_;
-use phpDocumentor\Reflection\Types\Boolean;
+use MartinPham\TypeGenerator\Helpers\DocBlockHelper;
 use phpDocumentor\Reflection\Types\Array_;
-use phpDocumentor\Reflection\Types\Object_;
-use phpDocumentor\Reflection\Types\Compound;
-use phpDocumentor\Reflection\Types\Null_;
-use phpDocumentor\Reflection\Fqsen;
+use phpDocumentor\Reflection\Types\Boolean;
+use phpDocumentor\Reflection\Types\Float_;
+use phpDocumentor\Reflection\Types\Integer;
+use phpDocumentor\Reflection\Types\String_;
+use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
 class DocBlockHelperTest extends TestCase
 {
     private $specMock;
     private $classReflectionMock;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->specMock = $this->createMock(Spec::class);
-        $this->classReflectionMock = $this->createMock(ReflectionClass::class);
-    }
 
     /**
      * Test parsing a string type
@@ -97,7 +79,6 @@ class DocBlockHelperTest extends TestCase
 
     }
 
-
     /**
      * Test parsing an array type
      */
@@ -112,6 +93,14 @@ class DocBlockHelperTest extends TestCase
         $this->assertInstanceOf(ArraySchema::class, $schema);
         $this->assertInstanceOf(Schema::class, $schema->items);
         $this->assertEquals('string', $schema->items->type);
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->specMock = $this->createMock(Spec::class);
+        $this->classReflectionMock = $this->createMock(ReflectionClass::class);
     }
 
 }

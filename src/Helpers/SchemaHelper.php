@@ -4,7 +4,11 @@ namespace MartinPham\TypeGenerator\Helpers;
 
 use MartinPham\TypeGenerator\Definitions\Schemas\OneOfSchema;
 
-class SchemaHelper {
+class SchemaHelper
+{
+    private array $_schemaResolvers = [];
+    private array $_schemas = [];
+
     public static function mergeSchemas(array $schemas, $nullable = false)
     {
         if (count($schemas) === 1) {
@@ -19,7 +23,8 @@ class SchemaHelper {
         return new OneOfSchema($schemas, $nullable);
     }
 
-    public static function containsBinaryString($data): bool {
+    public static function containsBinaryString($data): bool
+    {
         if (isset($data->type, $data->format)
             && $data->type === 'string'
             && $data->format === 'binary') {
@@ -35,5 +40,26 @@ class SchemaHelper {
         }
 
         return false;
+    }
+
+    public function registerSchema($id, $resolver): static
+    {
+        if (!isset($this->_schemas[$id])) {
+            $this->_schemaResolvers[$id] = $resolver;
+        }
+        return $this;
+    }
+
+    public function resolveAllSchemas(): array
+    {
+        while (count($this->_schemaResolvers) > 0) {
+            foreach ($this->_schemaResolvers as $id => $resolver) {
+                $result = $resolver();
+                $this->_schemas[$id] = $result->schema;
+                unset($this->_schemaResolvers[$id]);
+            }
+        }
+
+        return $this->_schemas;
     }
 }

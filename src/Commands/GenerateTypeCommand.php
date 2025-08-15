@@ -3,26 +3,25 @@
 namespace MartinPham\TypeGenerator\Commands;
 
 use Closure;
+use Exception;
 use Illuminate\Console\Command;
-
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route as FacadeRoute;
-use MartinPham\TypeGenerator\Definitions\Items\RequestBodyItem;
-use MartinPham\TypeGenerator\Definitions\Schemas\ArraySchema;
-use MartinPham\TypeGenerator\Definitions\Items\ContentItem;
 use MartinPham\TypeGenerator\Definitions\Items\ComponentSchemaItem;
 use MartinPham\TypeGenerator\Definitions\Items\ContentExampleItem;
-use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
-use MartinPham\TypeGenerator\Definitions\Operation;
-use MartinPham\TypeGenerator\Definitions\Parameter;
+use MartinPham\TypeGenerator\Definitions\Items\ContentItem;
 use MartinPham\TypeGenerator\Definitions\Items\PathItem;
 use MartinPham\TypeGenerator\Definitions\Items\PropertyItem;
-use MartinPham\TypeGenerator\Definitions\Response;
+use MartinPham\TypeGenerator\Definitions\Items\RequestBodyItem;
 use MartinPham\TypeGenerator\Definitions\Items\ResponseItem;
-use MartinPham\TypeGenerator\Definitions\Schemas\PaginatorSchema;
+use MartinPham\TypeGenerator\Definitions\Operation;
+use MartinPham\TypeGenerator\Definitions\Parameter;
+use MartinPham\TypeGenerator\Definitions\Response;
+use MartinPham\TypeGenerator\Definitions\Schemas\ArraySchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
 use MartinPham\TypeGenerator\Definitions\Spec;
@@ -39,21 +38,17 @@ use phpDocumentor\Reflection\Fqsen;
 use phpDocumentor\Reflection\PseudoTypes\ArrayShape;
 use phpDocumentor\Reflection\Types\Collection;
 use phpDocumentor\Reflection\Types\Object_;
+use PhpParser\Node;
+use PhpParser\NodeVisitorAbstract;
 use ReflectionClass;
 use ReflectionFunction;
+use ReflectionNamedType;
 use ReflectionUnionType;
-
-use PhpParser\Error;
-use PhpParser\Node;
-use PhpParser\ParserFactory;
-use PhpParser\NodeTraverser;
-use PhpParser\NodeVisitorAbstract;
-
 
 
 class GenerateTypeCommand extends Command
 {
-    protected $signature   = 'type:generate';
+    protected $signature = 'type:generate';
     protected $description = 'Generates types';
 
     public function handle(): int
@@ -61,23 +56,18 @@ class GenerateTypeCommand extends Command
 
         $this->info("Start");
 
-        /** @var array<string,array<string,Route>> */
         $routes = [];
 
-        /** @var array<int,Route> */
         $filteredRoutes = array_values(array_filter(
             FacadeRoute::getRoutes()->getRoutes(),
-            fn(Route $route) => ! $this->strStartsWith($route->getName() ?? '', config('type-generator.ignored_route_names', [])),
+            fn(Route $route) => !$this->strStartsWith($route->getName() ?? '', config('type-generator.ignored_route_names', [])),
         ));
-
-        // $filteredRoutes = FacadeRoute::getRoutes()->getRoutes();
-
-        // dd($filteredRoutes[62]);
 
         $specs = config('type-generator.route_prefixes', []);
 
         foreach ($specs as $_prefix => $config) {
             $specs[$_prefix]['spec'] = new Spec();
+            $specs[$_prefix]['schemaHelper'] = new SchemaHelper();
             $specs[$_prefix]['routes'] = [];
 
             foreach ($filteredRoutes as $route) {
@@ -101,6 +91,7 @@ class GenerateTypeCommand extends Command
 
         foreach ($specs as $prefix => $config) {
             $spec = &$specs[$prefix]['spec'];
+            $schemaHelper = &$specs[$prefix]['schemaHelper'];
 
             /** @var Route $route */
             foreach ($specs[$prefix]['routes'] as $route) {
@@ -108,7 +99,7 @@ class GenerateTypeCommand extends Command
 
                 $this->info("> Discovered route " . $uri . '  ' . ($route->getPrefix() ?? ''));
 
-                if (! key_exists($uri, $routes)) {
+                if (!key_exists($uri, $routes)) {
                     $routes[$uri] = [];
                 }
 
@@ -149,7 +140,7 @@ class GenerateTypeCommand extends Command
 
                         $classDocs = $classReflection->getDocComment();
 
-                        if($classDocs) {
+                        if ($classDocs) {
 
                             $classDocblock = DocBlockFactory::createInstance()->create($classDocs);
                             $_idsTags = $classDocblock->getTagsByName('id');
@@ -174,7 +165,7 @@ class GenerateTypeCommand extends Command
                         $classReflection = null;
                         $methodReflection = new ReflectionFunction($uses);
                     } else {
-                        throw new \Exception('Unknown uses for route ' . $operationId);
+                        throw new Exception('Unknown uses for route ' . $operationId);
                     }
 
                     $op = new Operation(
@@ -183,7 +174,7 @@ class GenerateTypeCommand extends Command
 
                     $parameters = [];
 
-                    $methodType  = $methodReflection->getReturnType();
+                    $methodType = $methodReflection->getReturnType();
                     $methodTypes = $methodType instanceof ReflectionUnionType ? $methodType->getTypes() : [$methodType];
 
 
@@ -200,7 +191,7 @@ class GenerateTypeCommand extends Command
 
                         /** @var Return_ $returnTag */
                         foreach ($returnTags as $returnTag) {
-                            $methodDocsSchemas[] = DocBlockHelper::parseTagType($returnTag->getType(), false, $classReflection, $spec);
+                            $methodDocsSchemas[] = DocBlockHelper::parseTagType($returnTag->getType(), false, $classReflection, $schemaHelper);
                         }
 
                         $_paramTags = $methodDocblock->getTagsByName('param');
@@ -241,7 +232,7 @@ class GenerateTypeCommand extends Command
                     $requestParams = [];
                     $requestParamsNullable = false;
 
-                    foreach($route->signatureParameters() as $parameter) {
+                    foreach ($route->signatureParameters() as $parameter) {
                         /** @var Param|null $paramTag */
                         $paramTag = $paramTags[$parameter->name] ?? null;
 
@@ -253,14 +244,14 @@ class GenerateTypeCommand extends Command
                                 $type = 'string';
                             }
 
-                            $type = (string) $type;
+                            $type = (string)$type;
                         }
 
-                        if ($type instanceof \ReflectionNamedType) {
+                        if ($type instanceof ReflectionNamedType) {
                             $typeClass = $type->getName() ?? null;
 
                             if (is_subclass_of($typeClass, FormRequest::class)) {
-                                $schema = ClassHelper::parseClass($typeClass, $type->allowsNull(), true, $spec);
+                                $schema = ClassHelper::parseClass($typeClass, $type->allowsNull(), true, $schemaHelper);
 
                                 $requestParamsNullable = $type->allowsNull();
 
@@ -306,16 +297,15 @@ class GenerateTypeCommand extends Command
 
                                 $requestParams[] = $schema;
                                 continue;
-                            }
-                            else if ($typeClass === Request::class) {
-                                if($paramTag !== null) {
+                            } else if ($typeClass === Request::class) {
+                                if ($paramTag !== null) {
                                     $paramTagType = $paramTag->getType();
                                     if ($paramTagType instanceof Collection) {
                                         $paramTagValueType = $paramTagType->getValueType();
 
 
                                         if ($paramTagValueType instanceof ArrayShape) {
-                                            $requestParams[] = DocBlockHelper::parseTagType($paramTagValueType, $requestParamsNullable, $classReflection, $spec);
+                                            $requestParams[] = DocBlockHelper::parseTagType($paramTagValueType, $requestParamsNullable, $classReflection, $schemaHelper);
                                         }
                                     }
                                 }
@@ -335,9 +325,8 @@ class GenerateTypeCommand extends Command
                     }
 
 
-
                     $requestParamProperties = [];
-                    foreach($requestParams as $body) {
+                    foreach ($requestParams as $body) {
                         $requestParamProperties = array_merge($requestParamProperties, $body->properties);
                     }
 
@@ -379,7 +368,7 @@ class GenerateTypeCommand extends Command
                     $this->info("> > > Collected " . count($methodDocsSchemas) . " method return(s) from DocBlock");
 
                     $methodSchemas = [];
-                    /** @var \ReflectionNamedType|null $methodType */
+                    /** @var ReflectionNamedType|null $methodType */
                     foreach ($methodTypes as $methodType) {
                         if (in_array($methodType, config('type-generator.ignored_route_returns', []))) {
                             continue;
@@ -462,9 +451,9 @@ class GenerateTypeCommand extends Command
                                     $this->info("> > > Native method return generic json api resource => Applied " . count($methodSchemas) . " method return(s) with filters from DocBlock");
                                 } else {
 
-                                    $resourceClass = new \ReflectionClass($classFullname);
+                                    $resourceClass = new ReflectionClass($classFullname);
 
-                                    $schema = DocBlockHelper::parseTagType(new Object_(new Fqsen('\\' . $name)), $methodAllowNull, $resourceClass, $spec);
+                                    $schema = DocBlockHelper::parseTagType(new Object_(new Fqsen('\\' . $name)), $methodAllowNull, $resourceClass, $schemaHelper);
 
                                     $methodSchemas[] = new ObjectSchema(
                                         properties: [
@@ -499,10 +488,10 @@ class GenerateTypeCommand extends Command
                                     $this->info("> > > Native method return generic resource => Applied " . count($methodSchemas) . " method return(s) with filters from DocBlock");
                                 } else {
 
-                                    $spec->putComponentSchema($className, function () use ($className, $methodTypeName, $spec, $methodAllowNull) {
+                                    $schemaHelper->registerSchema($className, function () use ($className, $methodTypeName, $schemaHelper, $methodAllowNull) {
                                         return new ComponentSchemaItem(
                                             id: $className,
-                                            schema: ClassHelper::parseClass($methodTypeName, false, false, $spec)
+                                            schema: ClassHelper::parseClass($methodTypeName, false, false, $schemaHelper)
                                         );
                                     });
 
@@ -515,7 +504,7 @@ class GenerateTypeCommand extends Command
                                 }
 
                             } else {
-                                throw new \Exception("Cannot understand route method return type {$route->getName()}-{$route->getActionMethod()}");
+                                throw new Exception("Cannot understand route method return type {$route->getName()}-{$route->getActionMethod()}");
                             }
                         }
                     }
@@ -531,7 +520,7 @@ class GenerateTypeCommand extends Command
                     $this->info("> > > Recorded " . count($parameters) . " parameter(s)");
 
 
-                    $methodSchema =  SchemaHelper::mergeSchemas($methodSchemas, $methodNullable);
+                    $methodSchema = SchemaHelper::mergeSchemas($methodSchemas, $methodNullable);
                     $contentItem = new ContentItem(
                         contentType: 'application/json',
                         schema: $methodSchema
@@ -600,20 +589,20 @@ class GenerateTypeCommand extends Command
                     }
 
                     $spec->putPath(new PathItem(
-                        method: $method,
                         path: $uri,
+                        method: $method,
                         operation: $op
                     ));
                 }
             }
 
-            $spec->resolveSchemas();
+            $spec->components['schemas'] = $schemaHelper->resolveAllSchemas();
 
 
-            $location  = $config['output'];
+            $location = $config['output'];
             $directory = dirname($location);
 
-            if (! File::isDirectory($directory)) {
+            if (!File::isDirectory($directory)) {
                 File::makeDirectory(
                     path: dirname($location),
                     recursive: true,
@@ -632,17 +621,11 @@ class GenerateTypeCommand extends Command
                 $output
             );
 
-            $this->info("Output generated at {$location}");
+            $this->info("Output generated at $location");
         }
 
 
-
-
-
-
-
-
-        return Command::SUCCESS;
+        return self::SUCCESS;
     }
 
     /**
@@ -650,8 +633,8 @@ class GenerateTypeCommand extends Command
      */
     protected function strStartsWith(string $haystack, string|array $needles): bool
     {
-        foreach ((array) $needles as $needle) {
-            if ('' !== (string) $needle && str_starts_with($haystack, $needle)) {
+        foreach ((array)$needles as $needle) {
+            if ('' !== (string)$needle && str_starts_with($haystack, $needle)) {
                 return true;
             }
         }

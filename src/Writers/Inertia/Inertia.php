@@ -1,4 +1,5 @@
 <?php
+
 namespace MartinPham\TypeGenerator\Writers\Inertia;
 
 use MartinPham\TypeGenerator\Definitions\Spec;
@@ -8,18 +9,17 @@ class Inertia implements Writer
 {
     public array $paths;
     public $components;
+    private array $processedSchemas = [];
+    private array $pendingSchemas = [];
 
     public function __construct(
-        Spec $spec,
+        Spec  $spec,
         array $options
-    ) {
+    )
+    {
         $this->paths = $spec->paths ?? [];
         $this->components = $spec->components ?? [];
     }
-
-
-    private array $processedSchemas = [];
-    private array $pendingSchemas = [];
 
     public function output(): string
     {

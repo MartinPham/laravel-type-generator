@@ -2,29 +2,23 @@
 
 namespace MartinPham\TypeGenerator\Helpers;
 
-use Illuminate\Support\Arr;
+use Exception;
 use Illuminate\Support\Facades\Schema as FacadeSchema;
+use Illuminate\Support\Str;
 use MartinPham\TypeGenerator\Definitions\Items\ComponentSchemaItem;
 use MartinPham\TypeGenerator\Definitions\Schemas\ArraySchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
 use MartinPham\TypeGenerator\Definitions\Schemas\StringSchema;
-use Illuminate\Support\Str;
-use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
 use phpDocumentor\Reflection\DocBlock\Tags\Return_;
 use phpDocumentor\Reflection\DocBlockFactory;
 use phpDocumentor\Reflection\Types\Collection;
-use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\Variable;
-use PhpParser\Node\Scalar\String_;
-use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Property;
-use PhpParser\NodeFinder;
-use PhpParser\ParserFactory;
 use ReflectionClass;
-use ReflectionMethod;
 
 class ModelHelper
 {
@@ -55,7 +49,7 @@ class ModelHelper
         'hasOneThrough' => 'Illuminate\Database\Eloquent\Relations\HasOneThrough'
     ];
 
-    public static function parseModel(string $classFullname, $nullable, $spec)
+    public static function parseModel(string $classFullname, bool $nullable, SchemaHelper $schemaHelper)
     {
         $classReflection = new ReflectionClass($classFullname);
 
@@ -68,7 +62,7 @@ class ModelHelper
         CodeHelper::parseClassNodes(
             $classReflection,
             /** @var Property $property */
-            function ($property) use (&$table, &$hidden, &$casts, &$connection) {
+            function (Property $property) use (&$table, &$hidden, &$casts, &$connection) {
                 foreach ($property->props as $prop) {
                     $propertyName = $prop->name->toString();
                     switch ($propertyName) {
@@ -91,7 +85,7 @@ class ModelHelper
                 }
             },
             /** @var ClassMethod $method */
-            function ($method, $methodReturnNodes) use (&$table, &$hidden, &$casts, &$connection, $classReflection, $spec, &$relationships) {
+            function (ClassMethod $method, $methodReturnNodes) use (&$table, &$hidden, &$casts, &$connection, $classReflection, $schemaHelper, &$relationships) {
                 $methodName = $method->name->toString();
                 if (
                     $method->isStatic() ||
@@ -104,14 +98,11 @@ class ModelHelper
                 foreach ($methodReturnNodes as $return) {
                     if ($methodName === 'getCasts' || $methodName === 'casts') {
                         $casts = array_merge($casts, CodeHelper::extractAssocArrayValues($return->expr));
-                    }
-                    else if ($methodName === 'getHidden' || $methodName === 'hidden') {
+                    } else if ($methodName === 'getHidden' || $methodName === 'hidden') {
                         $hidden = array_merge($hidden, CodeHelper::extractArrayValues($return->expr));
-                    }
-                    else if ($methodName === 'getTable') {
+                    } else if ($methodName === 'getTable') {
                         $table = CodeHelper::extractStringValue($return->expr);
-                    }
-                    else if ($methodName === 'getConnectionName') {
+                    } else if ($methodName === 'getConnectionName') {
                         $connection = CodeHelper::extractStringValue($return->expr);
                     }
                 }
@@ -204,17 +195,17 @@ class ModelHelper
                     break;
 
                 default:
-                    throw new \Exception("Cannot understand model structure - $classFullname::$columnName (type $columnType -> casted: $columnCastedType -> mapped: $columnMappedType)");
+                    throw new Exception("Cannot understand model structure - $classFullname::$columnName (type $columnType -> casted: $columnCastedType -> mapped: $columnMappedType)");
             }
         }
 
         CodeHelper::parseClassNodes(
             $classReflection,
             /** @var Property $property */
-            function ($property)  {
+            function (Property $property) {
             },
             /** @var ClassMethod $method */
-            function ($method, $methodReturnNodes) use ($hidden, $classReflection, $spec, &$relationships) {
+            function (ClassMethod $method, $methodReturnNodes) use ($classFullname, $hidden, $classReflection, $schemaHelper, &$relationships) {
                 $methodName = $method->name->toString();
 
                 if (
@@ -230,7 +221,7 @@ class ModelHelper
                     return;
                 }
 
-                $methodReflection = $classReflection->getMethod($methodName);;
+                $methodReflection = $classReflection->getMethod($methodName);
                 $methodDocs = $methodReflection->getDocComment();
 
                 if ($methodDocs) {
@@ -244,8 +235,8 @@ class ModelHelper
                             $returnTagTypeClassname = $returnTagType->getFqsen()->getName();
                             $returnTagTypeClassFullname = ClassHelper::getClassFullname($returnTagTypeClassname, $classReflection);
 
-                            if(isset(self::RELATION_TYPE[$returnTagTypeClassFullname])) {
-                                $relationships[$methodName] = DocBlockHelper::parseTagType($returnTag->getType(), false, $classReflection, $spec);
+                            if (isset(self::RELATION_TYPE[$returnTagTypeClassFullname])) {
+                                $relationships[$methodName] = DocBlockHelper::parseTagType($returnTag->getType(), false, $classReflection, $schemaHelper);
                             }
                         }
                     }
@@ -262,7 +253,7 @@ class ModelHelper
 
                             $callMethod = $call->name->toString();
 
-                            if(!isset(self::RELATION_CALL_NAME[$callMethod])) {
+                            if (!isset(self::RELATION_CALL_NAME[$callMethod])) {
                                 continue;
                             }
 
@@ -277,21 +268,23 @@ class ModelHelper
                                     $parts = explode('\\', $relatedModelFullClassname);
                                     $relatedModelClassname = $parts[count($parts) - 1];
 
-                                    $spec->putComponentSchema($relatedModelClassname, function () use ($relatedModelClassname, $relatedModelFullClassname, $spec) {
+                                    $schemaHelper->registerSchema($relatedModelClassname, function () use ($relatedModelClassname, $relatedModelFullClassname, $schemaHelper) {
                                         return new ComponentSchemaItem(
                                             id: $relatedModelClassname,
-                                            schema: ClassHelper::parseClass($relatedModelFullClassname, false, false, $spec)
+                                            schema: ClassHelper::parseClass($relatedModelFullClassname, false, false, $schemaHelper)
                                         );
                                     });
 
                                     if ($relationType === 'single') {
                                         $relationships[$methodName] = new RefSchema(
-                                            ref: $relatedModelClassname
+                                            ref: $relatedModelClassname,
+                                            nullable: true
                                         );
                                     } else if ($relationType === 'multiple') {
                                         $relationships[$methodName] = new ArraySchema(
                                             items: new RefSchema(
-                                                ref: $relatedModelClassname
+                                                ref: $relatedModelClassname,
+                                                nullable: true
                                             )
                                         );
                                     }
@@ -311,7 +304,8 @@ class ModelHelper
 
         return new ObjectSchema(
             properties: array_merge($properties, $relationships),
-            nullable: $nullable
+            required: array_keys($properties),
+            nullable: $nullable,
         );
     }
 }
