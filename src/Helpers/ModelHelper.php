@@ -27,8 +27,8 @@ class ModelHelper
         'Illuminate\Database\Eloquent\Relations\BelongsTo' => 'single',
         'Illuminate\Database\Eloquent\Relations\MorphTo' => 'single',
         'Illuminate\Database\Eloquent\Relations\MorphOne' => 'single',
+        'Illuminate\Database\Eloquent\Relations\HasOneThrough' => 'single',
 
-        'Illuminate\Database\Eloquent\Relations\HasOneThrough' => 'multiple',
         'Illuminate\Database\Eloquent\Relations\HasMany' => 'multiple',
         'Illuminate\Database\Eloquent\Relations\BelongsToMany' => 'multiple',
         'Illuminate\Database\Eloquent\Relations\HasManyThrough' => 'multiple',
@@ -283,9 +283,9 @@ class ModelHelper
                                     } else if ($relationType === 'multiple') {
                                         $relationships[$methodName] = new ArraySchema(
                                             items: new RefSchema(
-                                                ref: $relatedModelClassname,
-                                                nullable: true
-                                            )
+                                                ref: $relatedModelClassname
+                                            ),
+                                            nullable: true
                                         );
                                     }
 
