@@ -40,7 +40,7 @@ class ClassHelperTest extends TestCase
      */
     public function test_parse_class_with_datetime()
     {
-        $schema = ClassHelper::parseClass(DateTime::class, $this->specMock, false);
+        $schema = ClassHelper::parseClass(DateTime::class, false, false, $this->specMock);
 
         $this->assertInstanceOf(StringSchema::class, $schema);
         $this->assertEquals('date-time', $schema->format);
@@ -67,7 +67,7 @@ class ClassHelperTest extends TestCase
         // Include the file
         include_once $tempFile;
 
-        $schema = ClassHelper::parseClass('SimpleTestClass', $this->specMock, false);
+        $schema = ClassHelper::parseClass('SimpleTestClass', false, false, $this->specMock);
 
         $this->assertInstanceOf(ObjectSchema::class, $schema);
 
@@ -124,7 +124,7 @@ class ClassHelperTest extends TestCase
         // Include the file
         include_once $tempFile;
 
-        $schema = ClassHelper::parseClass('ArrayPropsTestClass', $this->specMock, false);
+        $schema = ClassHelper::parseClass('ArrayPropsTestClass', false, false, $this->specMock);
 
         $this->assertInstanceOf(ObjectSchema::class, $schema);
 
@@ -212,7 +212,7 @@ class ClassHelperTest extends TestCase
         // Include the file
         include_once $tempFile;
 
-        $schema = ClassHelper::parseClass('DocblockPropsTestClass', $this->specMock, false);
+        $schema = ClassHelper::parseClass('DocblockPropsTestClass', false, false, $this->specMock);
 
         $this->assertInstanceOf(ObjectSchema::class, $schema);
 
@@ -253,7 +253,7 @@ class ClassHelperTest extends TestCase
         // Include the file
         include_once $tempFile;
 
-        $schema = ClassHelper::parseClass('UnionTypeTestClass', $this->specMock, false);
+        $schema = ClassHelper::parseClass('UnionTypeTestClass', false, false, $this->specMock);
 
         $this->assertInstanceOf(ObjectSchema::class, $schema);
 
@@ -290,7 +290,7 @@ class ClassHelperTest extends TestCase
         include_once $tempFile;
 
         // Parse with onlyFromDocblock = true
-        $schema = ClassHelper::parseClass('MixedPropsTestClass', $this->specMock, false, true);
+        $schema = ClassHelper::parseClass('MixedPropsTestClass', false, true, $this->specMock);
 
         $this->assertInstanceOf(ObjectSchema::class, $schema);
 

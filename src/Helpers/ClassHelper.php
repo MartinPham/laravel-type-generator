@@ -40,10 +40,10 @@ class ClassHelper
         return $classFullname;
     }
 
-    public static function parseClass(string $classFullname, $spec, $nullable, $onlyFromDocblock = false)
+    public static function parseClass(string $classFullname, $nullable, $onlyFromDocblock, $spec)
     {
         if (is_subclass_of($classFullname, EloquentModel::class)) {
-            return ModelHelper::parseModel($classFullname, $spec, $nullable);
+            return ModelHelper::parseModel($classFullname, $nullable, $spec);
         }
         if (is_subclass_of($classFullname, 'DateTimeInterface')) {
             return new StringSchema(
@@ -139,7 +139,7 @@ class ClassHelper
                             $spec->putComponentSchema($name, function () use ($name, $classFullname, $spec, $nullable) {
                                 return new ComponentSchemaItem(
                                     id: $name,
-                                    schema: ClassHelper::parseClass((string) $classFullname, $spec, $nullable)
+                                    schema: ClassHelper::parseClass((string) $classFullname, $nullable, false, $spec)
                                 );
                             });
 

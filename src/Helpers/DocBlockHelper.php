@@ -193,7 +193,7 @@ class DocBlockHelper
                 }
 
                 $typeClassFullname = ClassHelper::getClassFullname($typeClassName, $resourceClass);
-                $resourceModel = ModelHelper::parseModel($typeClassFullname, $spec, $nullable);
+                $resourceModel = ModelHelper::parseModel($typeClassFullname, $nullable, $spec);
 
                 foreach ($attributes as $attribute) {
                     if (isset($resourceModel->properties[$attribute])) {
@@ -277,6 +277,7 @@ class DocBlockHelper
                 );
 
 
+
                 $resourceAttributes = [];
                 $resourceDocs = $resourceClass->getDocComment();
                 if ($resourceDocs) {
@@ -316,7 +317,7 @@ class DocBlockHelper
                 }
 
                 $typeClassFullname = ClassHelper::getClassFullname($typeClassName, $resourceClass);
-                $resourceModel = ModelHelper::parseModel($typeClassFullname, $spec, $nullable);
+                $resourceModel = ModelHelper::parseModel($typeClassFullname, $nullable, $spec);
 
                 foreach ($attributes as $attribute) {
                     if (isset($resourceModel->properties[$attribute])) {
@@ -346,7 +347,7 @@ class DocBlockHelper
             $spec->putComponentSchema($name, function () use ($name, $classFullname, $spec, $nullable) {
                 return new ComponentSchemaItem(
                     id: $name,
-                    schema: ClassHelper::parseClass((string) $classFullname, $spec, $nullable)
+                    schema: ClassHelper::parseClass((string) $classFullname, $nullable, false, $spec)
                 );
             });
 

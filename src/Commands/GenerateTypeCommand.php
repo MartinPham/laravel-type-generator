@@ -260,7 +260,7 @@ class GenerateTypeCommand extends Command
                             $typeClass = $type->getName() ?? null;
 
                             if (is_subclass_of($typeClass, FormRequest::class)) {
-                                $schema = ClassHelper::parseClass($typeClass, $spec, $type->allowsNull(), true);
+                                $schema = ClassHelper::parseClass($typeClass, $type->allowsNull(), true, $spec);
 
                                 $requestParamsNullable = $type->allowsNull();
 
@@ -502,7 +502,7 @@ class GenerateTypeCommand extends Command
                                     $spec->putComponentSchema($className, function () use ($className, $methodTypeName, $spec, $methodAllowNull) {
                                         return new ComponentSchemaItem(
                                             id: $className,
-                                            schema: ClassHelper::parseClass($methodTypeName, $spec, false)
+                                            schema: ClassHelper::parseClass($methodTypeName, false, false, $spec)
                                         );
                                     });
 

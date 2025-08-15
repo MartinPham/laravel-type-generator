@@ -55,7 +55,7 @@ class ModelHelper
         'hasOneThrough' => 'Illuminate\Database\Eloquent\Relations\HasOneThrough'
     ];
 
-    public static function parseModel(string $classFullname, $spec, $nullable)
+    public static function parseModel(string $classFullname, $nullable, $spec)
     {
         $classReflection = new ReflectionClass($classFullname);
 
@@ -280,7 +280,7 @@ class ModelHelper
                                     $spec->putComponentSchema($relatedModelClassname, function () use ($relatedModelClassname, $relatedModelFullClassname, $spec) {
                                         return new ComponentSchemaItem(
                                             id: $relatedModelClassname,
-                                            schema: ClassHelper::parseClass($relatedModelFullClassname, $spec, false)
+                                            schema: ClassHelper::parseClass($relatedModelFullClassname, false, false, $spec)
                                         );
                                     });
 
