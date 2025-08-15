@@ -131,7 +131,7 @@ class Inertia implements Writer
 
         if (isset($schema->properties)) {
             foreach ($schema->properties as $propName => $propSchema) {
-                $optional = @$propSchema->nullable ? '' : '?';
+                $optional = (@$propSchema->nullable === null || @$propSchema->nullable === false) ? '' : '?';
                 $tsType = $this->convertToTypeScript($propSchema);
                 $output .= "  {$propName}{$optional}: {$tsType};\n";
             }
@@ -222,20 +222,22 @@ class Inertia implements Writer
         // Generate response types
         if (isset($operation->responses)) {
             foreach ($operation->responses as $statusCode => $response) {
-                if ($statusCode == 200) {
+                if ($statusCode == 200 || $statusCode == 'default') {
                     $responseTypeName = str_replace('.', '_', $operationId);
+                    $parts = explode('_', $responseTypeName);
+                    $parts = array_map(fn ($part) => ucwords($part), $parts);
+                    $responseTypeName = implode('', $parts);
 
                     if (isset($response->content['application/json']['schema'])) {
                         $schema = $response->content['application/json']['schema'];
                         $tsType = $this->convertToTypeScript($schema);
-                        $description = isset($response->description) ? " // {$response->description}" : '';
-                        $output .= "export type {$responseTypeName} = {$tsType};{$description}\n";
+                        // $description = isset($response->description) ? " // {$response->description}" : '';
+                        $output .= "export type {$responseTypeName}Props = {$tsType};\n";
                     } else {
-                        $description = isset($response->description) ? " // {$response->description}" : '';
-                        $output .= "export type {$responseTypeName} = void;{$description}\n";
+                        // $description = isset($response->description) ? " // {$response->description}" : '';
+                        $output .= "export type {$responseTypeName}Props = void;\n";
                     }
-
-                    $output .= "export const route_{$responseTypeName} = '$operationId';{$description}\n";
+                    $output .= "export const {$responseTypeName}RouteId = '{$operationId}';\n";
                 }
             }
             $output .= "\n";
