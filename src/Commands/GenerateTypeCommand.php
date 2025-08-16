@@ -7,6 +7,7 @@ use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route as FacadeRoute;
@@ -21,7 +22,11 @@ use MartinPham\TypeGenerator\Definitions\Operation;
 use MartinPham\TypeGenerator\Definitions\Parameter;
 use MartinPham\TypeGenerator\Definitions\Response;
 use MartinPham\TypeGenerator\Definitions\Schemas\ArraySchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\CursorPaginatorSchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\CustomSchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\LengthAwarePaginatorSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\ObjectSchema;
+use MartinPham\TypeGenerator\Definitions\Schemas\PaginatorSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\RefSchema;
 use MartinPham\TypeGenerator\Definitions\Schemas\Schema;
 use MartinPham\TypeGenerator\Definitions\Spec;
@@ -50,6 +55,19 @@ class GenerateTypeCommand extends Command
 {
     protected $signature = 'type:generate';
     protected $description = 'Generates types';
+
+    private const TYPE_MAP = [
+        "int"      => ["type" => "integer", "format" => "int32"],
+        "float"    => ["type" => "number",  "format" => "float"],
+        "string"   => ["type" => "string"],
+        "bool"     => ["type" => "boolean"],
+        "object"   => ["type" => "object"],
+
+        "array"    => ["type" => "array", "items" => ["type" => "object"]],
+        "iterable" => ["type" => "array", "items" => ["type" => "object"]],
+
+        "mixed"    => ["type" => "object"],
+    ];
 
     public function handle(): int
     {
@@ -178,6 +196,7 @@ class GenerateTypeCommand extends Command
                     $methodTypes = $methodType instanceof ReflectionUnionType ? $methodType->getTypes() : [$methodType];
 
 
+
                     $methodDocs = $methodReflection->getDocComment();
 
 
@@ -256,15 +275,6 @@ class GenerateTypeCommand extends Command
                                 $requestParamsNullable = $type->allowsNull();
 
                                 if (count($schema->properties) === 0) {
-//                                    $requestInstance = new $orgType;
-//                                    $rules = $requestInstance->rules();
-//
-//                                    foreach ($rules as $field => $rule) {
-//                                        $schema->properties[$field] = new Schema(
-//                                            type: 'string',
-//                                        );
-//                                    }
-
                                     $typeClassReflection = new ReflectionClass($typeClass);
                                     $properties = CodeHelper::parseClassCode($typeClassReflection, new class extends NodeVisitorAbstract {
                                         public array $results = [];
@@ -297,7 +307,8 @@ class GenerateTypeCommand extends Command
 
                                 $requestParams[] = $schema;
                                 continue;
-                            } else if ($typeClass === Request::class) {
+                            }
+                            else if ($typeClass === Request::class) {
                                 if ($paramTag !== null) {
                                     $paramTagType = $paramTag->getType();
                                     if ($paramTagType instanceof Collection) {
@@ -367,6 +378,13 @@ class GenerateTypeCommand extends Command
 
                     $this->info("> > > Collected " . count($methodDocsSchemas) . " method return(s) from DocBlock");
 
+
+
+                    $op->putParameters(array_values($parameters));
+
+                    $this->info("> > > Recorded " . count($parameters) . " parameter(s)");
+
+
                     $methodSchemas = [];
                     /** @var ReflectionNamedType|null $methodType */
                     foreach ($methodTypes as $methodType) {
@@ -374,27 +392,100 @@ class GenerateTypeCommand extends Command
                             continue;
                         }
                         if ($methodType === null) {
-                            $methodSchemas = $methodDocsSchemas;
-                            $this->info("> > > No native method return => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
+                            $this->info("> > > No native method return");
                         } else {
                             $methodTypeName = $methodType->getName();
 
 
-                            if ($methodTypeName === 'array' || is_subclass_of($methodTypeName, 'Illuminate\Support\Collection')) {
+
+
+                            if (
+                                ($methodTypeName === 'array' || $methodTypeName === 'iterable' || is_subclass_of($methodTypeName, 'Illuminate\Support\Collection'))
+                                && count($methodDocsSchemas) > 0
+                            ) {
                                 $methodSchemas = $methodDocsSchemas;
 
                                 $this->info("> > > Native method returns list data type => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
-                            } else if (
+                            }
+
+                            else if (
                                 is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\Paginator') || $methodTypeName === 'Illuminate\Contracts\Pagination\Paginator'
                                 || is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\LengthAwarePaginator') || $methodTypeName === 'Illuminate\Pagination\LengthAwarePaginator'
                                 || is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\CursorPaginator') || $methodTypeName === 'Illuminate\Contracts\Pagination\CursorPaginator'
                             ) {
-                                $methodSchemas = $methodDocsSchemas;
+                                if (count ($methodDocsSchemas) > 0) {
+                                    $methodSchemas = $methodDocsSchemas;
+                                    $this->info("> > > Native method return paginator => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
+                                } else {
+                                    $methodAllowNull = $methodType->allowsNull();
+                                    if ($methodAllowNull) {
+                                        $methodNullable = true;
+                                    }
 
-                                $this->info("> > > Native method return paginator => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
-                            } else if (
-                                is_subclass_of($methodTypeName, 'TiMacDonald\JsonApi\JsonApiResource')
-                                || is_subclass_of($methodTypeName, 'TiMacDonald\JsonApi\JsonApiResourceCollection')
+                                    if(is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\Paginator') || $methodTypeName === 'Illuminate\Contracts\Pagination\Paginator') {
+                                        $className = 'Paginator';
+                                        $schema = new PaginatorSchema(
+                                            schema: new ObjectSchema()
+                                        );
+
+                                        $schemaHelper->registerSchema($className, function () use ($className, $schema, $methodTypeName, $schemaHelper, $methodAllowNull) {
+                                            return new ComponentSchemaItem(
+                                                id: $className,
+                                                schema: $schema
+                                            );
+                                        });
+
+                                        $methodSchemas[] = new RefSchema(
+                                            ref: $className,
+                                            nullable: $methodAllowNull
+                                        );
+                                    }
+                                    else if(is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\LengthAwarePaginator') || $methodTypeName === 'Illuminate\Pagination\LengthAwarePaginator') {
+                                        $className = 'LengthAwarePaginator';
+                                        $schema = new LengthAwarePaginatorSchema(
+                                            schema: new ObjectSchema()
+                                        );;
+
+                                        $schemaHelper->registerSchema($className, function () use ($className, $schema, $methodTypeName, $schemaHelper, $methodAllowNull) {
+                                            return new ComponentSchemaItem(
+                                                id: $className,
+                                                schema: $schema
+                                            );
+                                        });
+
+                                        $methodSchemas[] = new RefSchema(
+                                            ref: $className,
+                                            nullable: $methodAllowNull
+                                        );
+                                    }
+                                    else if(is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\CursorPaginator') || $methodTypeName === 'Illuminate\Contracts\Pagination\CursorPaginator') {
+                                        $className = 'CursorPaginator';
+                                        $schema = new CursorPaginatorSchema(
+                                            schema: new ObjectSchema()
+                                        );;
+
+                                        $schemaHelper->registerSchema($className, function () use ($className, $schema, $methodTypeName, $schemaHelper, $methodAllowNull) {
+                                            return new ComponentSchemaItem(
+                                                id: $className,
+                                                schema: $schema
+                                            );
+                                        });
+
+                                        $methodSchemas[] = new RefSchema(
+                                            ref: $className,
+                                            nullable: $methodAllowNull
+                                        );
+                                    }
+
+
+                                    $this->info("> > > Native method return paginator => Add method return(s) without object type");
+                                }
+
+                            }
+
+                            else if (
+                                is_subclass_of($methodTypeName, 'TiMacDonald\JsonApi\JsonApiResource') || $methodTypeName === 'TiMacDonald\JsonApi\JsonApiResource'
+                                || is_subclass_of($methodTypeName, 'TiMacDonald\JsonApi\JsonApiResourceCollection') || $methodTypeName === 'TiMacDonald\JsonApi\JsonApiResourceCollection'
                                 || is_subclass_of($methodTypeName, 'Illuminate\Http\Resources\Json\ResourceCollection') || $methodTypeName === 'Illuminate\Http\Resources\Json\ResourceCollection'
                                 || is_subclass_of($methodTypeName, 'Illuminate\Http\Resources\Json\JsonResource') || $methodTypeName === 'Illuminate\Http\Resources\Json\JsonResource'
                             ) {
@@ -410,46 +501,55 @@ class GenerateTypeCommand extends Command
 
                                 if (
                                     $classFullname === 'TiMacDonald\JsonApi\JsonApiResource'
+                                    || $classFullname === 'Illuminate\Http\Resources\Json\JsonResource'
                                 ) {
-                                    $methodSchemas = array_map(function ($schema) {
-                                        return new ObjectSchema(
+                                    if (count($methodDocsSchemas) > 0) {
+                                        $methodSchemas = array_map(function ($schema) {
+                                            return new ObjectSchema(
+                                                properties: [
+                                                    'data' => $schema
+                                                ]
+                                            );
+                                        }, $methodDocsSchemas);
+
+
+                                        $this->info("> > > Native method return generic json api resource => Applied " . count($methodSchemas) . " method return(s) with filters from DocBlock");
+                                    } else {
+                                        $methodSchemas[] = new ObjectSchema(
                                             properties: [
-                                                'data' => $schema
+                                                'data' => new ObjectSchema()
                                             ]
                                         );
-                                    }, $methodDocsSchemas);
-
-
-                                    $this->info("> > > Native method return generic json api collection resource => Applied " . count($methodSchemas) . " method return(s) with filters from DocBlock");
-                                } elseif (
+                                        $this->info("> > > Native method return generic json api resource => Added method return(s) without object type");
+                                    }
+                                }
+                                else if (
                                     $classFullname === 'TiMacDonald\JsonApi\JsonApiResourceCollection'
+                                    || $classFullname === 'Illuminate\Http\Resources\Json\ResourceCollection'
                                 ) {
-                                    $methodSchemas = array_map(function ($schema) {
-                                        return new ObjectSchema(
+                                    if (count($methodDocsSchemas) > 0) {
+                                        $methodSchemas = array_map(function ($schema) {
+                                            return new ObjectSchema(
+                                                properties: [
+                                                    'data' => $schema
+                                                ]
+                                            );
+                                        }, $methodDocsSchemas);
+
+
+                                        $this->info("> > > Native method return generic json api collection resource => Applied " . count($methodSchemas) . " method return(s) with filters from DocBlock");
+                                    } else {
+                                        $methodSchemas[] = new ObjectSchema(
                                             properties: [
                                                 'data' => new ArraySchema(
-                                                    items: $schema
+                                                    items: new ObjectSchema()
                                                 )
                                             ]
                                         );
-                                    }, $methodDocsSchemas);
-
-                                    $this->info("> > > Native method return generic json api resource => Applied " . count($methodSchemas) . " method return(s) with filters from DocBlock");
-                                } else if (
-                                    $classFullname === 'Illuminate\Http\Resources\Json\JsonResource'
-                                    || $classFullname === 'Illuminate\Http\Resources\Json\ResourceCollection'
-                                ) {
-                                    $methodSchemas = array_map(function ($schema) {
-                                        return new ObjectSchema(
-                                            properties: [
-                                                'data' => $schema
-                                            ]
-                                        );
-                                    }, $methodDocsSchemas);
-
-
-                                    $this->info("> > > Native method return generic json api resource => Applied " . count($methodSchemas) . " method return(s) with filters from DocBlock");
-                                } else {
+                                        $this->info("> > > Native method return generic json api collection resource => Added method return(s) without object type");
+                                    }
+                                }
+                                else {
 
                                     $resourceClass = new ReflectionClass($classFullname);
 
@@ -464,7 +564,8 @@ class GenerateTypeCommand extends Command
                                     $this->info("> > > Native method return resource => try to parse the resource");
                                 }
 
-                            } else if (class_exists($methodTypeName)) {
+                            }
+                            else if (class_exists($methodTypeName)) {
                                 $methodAllowNull = $methodType->allowsNull();
                                 if ($methodAllowNull) {
                                     $methodNullable = true;
@@ -503,33 +604,40 @@ class GenerateTypeCommand extends Command
                                     $this->info("> > > Native method return class $methodTypeName ($className) => Collected " . count($methodSchemas) . " method return(s) from Reflection");
                                 }
 
-                            } else {
+                            }
+                            else if (isset(self::TYPE_MAP[$methodTypeName])) {
+                                $this->info("> > > Native method returns non-class data type");
+
+                                $methodSchemas[] = new CustomSchema(self::TYPE_MAP[$methodTypeName]);
+                            }
+                            else if ($methodTypeName === 'void' || $methodTypeName === 'never') {
+                                $this->info("> > > Native method doesnt return anything");
+                            }
+                            else {
                                 throw new Exception("Cannot understand route method return type {$route->getName()}-{$route->getActionMethod()}");
                             }
                         }
                     }
 
+
+                    $response = new Response(
+                        description: $methodReflection->getName(),
+                    );
+
                     if (count($methodSchemas) === 0) {
                         $this->warn("> > > > Nothing can be found for route method return type {$route->getName()}-{$route->getActionMethod()}");
-                        continue;
+                    } else {
+                        $methodSchema = SchemaHelper::mergeSchemas($methodSchemas, $methodNullable);
+                        $contentItem = new ContentItem(
+                            contentType: 'application/json',
+                            schema: $methodSchema
+                        );
+
+                        $response->putContent($contentItem);
                     }
-
-
-                    $op->putParameters(array_values($parameters));
-
-                    $this->info("> > > Recorded " . count($parameters) . " parameter(s)");
-
-
-                    $methodSchema = SchemaHelper::mergeSchemas($methodSchemas, $methodNullable);
-                    $contentItem = new ContentItem(
-                        contentType: 'application/json',
-                        schema: $methodSchema
-                    );
                     $op->putResponse(new ResponseItem(
                         code: '200',
-                        response: (new Response(
-                            description: $methodReflection->getName(),
-                        ))->putContent($contentItem)
+                        response: $response
                     ));
 
                     if ($throwsTags !== null && count($throwsTags) > 0) {
