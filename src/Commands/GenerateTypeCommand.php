@@ -569,34 +569,19 @@ class GenerateTypeCommand extends Command
                                 $className = end($parts);
                                 $classFullname = ClassHelper::getClassFullname($className, $classReflection);
 
-                                if (
-                                    $classFullname === 'Illuminate\Http\Resources\Json\ResourceCollection'
-                                    || $classFullname === 'Illuminate\Http\Resources\Json\JsonResource'
-                                ) {
-                                    $methodSchemas = array_map(function ($schema) {
-                                        return new ObjectSchema(
-                                            properties: [
-                                                'data' => $schema
-                                            ]
-                                        );
-                                    }, $methodDocsSchemas);
-                                    $this->info("> > > Native method return generic resource => Applied " . count($methodSchemas) . " method return(s) with filters from DocBlock");
-                                } else {
-
-                                    $schemaHelper->registerSchema($className, function () use ($className, $methodTypeName, $schemaHelper, $methodAllowNull) {
-                                        return new ComponentSchemaItem(
-                                            id: $className,
-                                            schema: ClassHelper::parseClass($methodTypeName, false, false, $schemaHelper)
-                                        );
-                                    });
-
-                                    $methodSchemas[] = new RefSchema(
-                                        ref: $className,
-                                        nullable: $methodAllowNull
+                                $schemaHelper->registerSchema($className, function () use ($className, $methodTypeName, $schemaHelper, $methodAllowNull) {
+                                    return new ComponentSchemaItem(
+                                        id: $className,
+                                        schema: ClassHelper::parseClass($methodTypeName, false, false, $schemaHelper)
                                     );
+                                });
 
-                                    $this->info("> > > Native method return class $methodTypeName ($className) => Collected " . count($methodSchemas) . " method return(s) from Reflection");
-                                }
+                                $methodSchemas[] = new RefSchema(
+                                    ref: $className,
+                                    nullable: $methodAllowNull
+                                );
+
+                                $this->info("> > > Native method return class $methodTypeName ($className) => Collected " . count($methodSchemas) . " method return(s) from Reflection");
 
                             }
 
