@@ -7,7 +7,6 @@ use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route as FacadeRoute;
@@ -53,21 +52,20 @@ use ReflectionUnionType;
 
 class GenerateTypeCommand extends Command
 {
-    protected $signature = 'type:generate';
-    protected $description = 'Generates types';
-
     private const TYPE_MAP = [
-        "int"      => ["type" => "integer", "format" => "int32"],
-        "float"    => ["type" => "number",  "format" => "float"],
-        "string"   => ["type" => "string"],
-        "bool"     => ["type" => "boolean"],
-        "object"   => ["type" => "object"],
+        "int" => ["type" => "integer", "format" => "int32"],
+        "float" => ["type" => "number", "format" => "float"],
+        "string" => ["type" => "string"],
+        "bool" => ["type" => "boolean"],
+        "object" => ["type" => "object"],
 
-        "array"    => ["type" => "array", "items" => ["type" => "object"]],
+        "array" => ["type" => "array", "items" => ["type" => "object"]],
         "iterable" => ["type" => "array", "items" => ["type" => "object"]],
 
-        "mixed"    => ["type" => "object"],
+        "mixed" => ["type" => "object"],
     ];
+    protected $signature = 'type:generate';
+    protected $description = 'Generates types';
 
     public function handle(): int
     {
@@ -196,7 +194,6 @@ class GenerateTypeCommand extends Command
                     $methodTypes = $methodType instanceof ReflectionUnionType ? $methodType->getTypes() : [$methodType];
 
 
-
                     $methodDocs = $methodReflection->getDocComment();
 
 
@@ -269,7 +266,7 @@ class GenerateTypeCommand extends Command
                         if ($type instanceof ReflectionNamedType) {
                             $typeClass = $type->getName() ?? null;
 
-                            if (is_subclass_of($typeClass, FormRequest::class)) {
+                            if (ClassHelper::isKindOf($typeClass, FormRequest::class)) {
                                 $schema = ClassHelper::parseClass($typeClass, $type->allowsNull(), true, $schemaHelper);
 
                                 $requestParamsNullable = $type->allowsNull();
@@ -307,8 +304,7 @@ class GenerateTypeCommand extends Command
 
                                 $requestParams[] = $schema;
                                 continue;
-                            }
-                            else if ($typeClass === Request::class) {
+                            } else if ($typeClass === Request::class) {
                                 if ($paramTag !== null) {
                                     $paramTagType = $paramTag->getType();
                                     if ($paramTagType instanceof Collection) {
@@ -379,7 +375,6 @@ class GenerateTypeCommand extends Command
                     $this->info("> > > Collected " . count($methodDocsSchemas) . " method return(s) from DocBlock");
 
 
-
                     $op->putParameters(array_values($parameters));
 
                     $this->info("> > > Recorded " . count($parameters) . " parameter(s)");
@@ -397,10 +392,12 @@ class GenerateTypeCommand extends Command
                             $methodTypeName = $methodType->getName();
 
 
-
-
                             if (
-                                ($methodTypeName === 'array' || $methodTypeName === 'iterable' || is_subclass_of($methodTypeName, 'Illuminate\Support\Collection'))
+                                (
+                                    $methodTypeName === 'array'
+                                    || $methodTypeName === 'iterable'
+                                    || ClassHelper::isKindOf($methodTypeName, 'Illuminate\Support\Collection')
+                                )
                                 && count($methodDocsSchemas) > 0
                             ) {
                                 $methodSchemas = $methodDocsSchemas;
@@ -409,11 +406,11 @@ class GenerateTypeCommand extends Command
                             }
 
                             else if (
-                                is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\Paginator') || $methodTypeName === 'Illuminate\Contracts\Pagination\Paginator'
-                                || is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\LengthAwarePaginator') || $methodTypeName === 'Illuminate\Pagination\LengthAwarePaginator'
-                                || is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\CursorPaginator') || $methodTypeName === 'Illuminate\Contracts\Pagination\CursorPaginator'
+                                ClassHelper::isKindOf($methodTypeName, 'Illuminate\Contracts\Pagination\Paginator')
+                                || ClassHelper::isKindOf($methodTypeName, 'Illuminate\Contracts\Pagination\LengthAwarePaginator')
+                                || ClassHelper::isKindOf($methodTypeName, 'Illuminate\Contracts\Pagination\CursorPaginator')
                             ) {
-                                if (count ($methodDocsSchemas) > 0) {
+                                if (count($methodDocsSchemas) > 0) {
                                     $methodSchemas = $methodDocsSchemas;
                                     $this->info("> > > Native method return paginator => Applied " . count($methodSchemas) . " method return(s) from DocBlock");
                                 } else {
@@ -422,7 +419,7 @@ class GenerateTypeCommand extends Command
                                         $methodNullable = true;
                                     }
 
-                                    if(is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\Paginator') || $methodTypeName === 'Illuminate\Contracts\Pagination\Paginator') {
+                                    if (ClassHelper::isKindOf($methodTypeName, 'Illuminate\Contracts\Pagination\Paginator')) {
                                         $className = 'Paginator';
                                         $schema = new PaginatorSchema(
                                             schema: new ObjectSchema()
@@ -439,8 +436,7 @@ class GenerateTypeCommand extends Command
                                             ref: $className,
                                             nullable: $methodAllowNull
                                         );
-                                    }
-                                    else if(is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\LengthAwarePaginator') || $methodTypeName === 'Illuminate\Pagination\LengthAwarePaginator') {
+                                    } else if (ClassHelper::isKindOf($methodTypeName, 'Illuminate\Contracts\Pagination\LengthAwarePaginator')) {
                                         $className = 'LengthAwarePaginator';
                                         $schema = new LengthAwarePaginatorSchema(
                                             schema: new ObjectSchema()
@@ -457,8 +453,7 @@ class GenerateTypeCommand extends Command
                                             ref: $className,
                                             nullable: $methodAllowNull
                                         );
-                                    }
-                                    else if(is_subclass_of($methodTypeName, 'Illuminate\Contracts\Pagination\CursorPaginator') || $methodTypeName === 'Illuminate\Contracts\Pagination\CursorPaginator') {
+                                    } else if (ClassHelper::isKindOf($methodTypeName, 'Illuminate\Contracts\Pagination\CursorPaginator')) {
                                         $className = 'CursorPaginator';
                                         $schema = new CursorPaginatorSchema(
                                             schema: new ObjectSchema()
@@ -484,10 +479,10 @@ class GenerateTypeCommand extends Command
                             }
 
                             else if (
-                                is_subclass_of($methodTypeName, 'TiMacDonald\JsonApi\JsonApiResource') || $methodTypeName === 'TiMacDonald\JsonApi\JsonApiResource'
-                                || is_subclass_of($methodTypeName, 'TiMacDonald\JsonApi\JsonApiResourceCollection') || $methodTypeName === 'TiMacDonald\JsonApi\JsonApiResourceCollection'
-                                || is_subclass_of($methodTypeName, 'Illuminate\Http\Resources\Json\ResourceCollection') || $methodTypeName === 'Illuminate\Http\Resources\Json\ResourceCollection'
-                                || is_subclass_of($methodTypeName, 'Illuminate\Http\Resources\Json\JsonResource') || $methodTypeName === 'Illuminate\Http\Resources\Json\JsonResource'
+                                ClassHelper::isKindOf($methodTypeName, 'TiMacDonald\JsonApi\JsonApiResource')
+                                || ClassHelper::isKindOf($methodTypeName, 'TiMacDonald\JsonApi\JsonApiResourceCollection')
+                                || ClassHelper::isKindOf($methodTypeName, 'Illuminate\Http\Resources\Json\ResourceCollection')
+                                || ClassHelper::isKindOf($methodTypeName, 'Illuminate\Http\Resources\Json\JsonResource')
                             ) {
 
                                 $methodAllowNull = $methodType->allowsNull();
@@ -522,8 +517,7 @@ class GenerateTypeCommand extends Command
                                         );
                                         $this->info("> > > Native method return generic json api resource => Added method return(s) without object type");
                                     }
-                                }
-                                else if (
+                                } else if (
                                     $classFullname === 'TiMacDonald\JsonApi\JsonApiResourceCollection'
                                     || $classFullname === 'Illuminate\Http\Resources\Json\ResourceCollection'
                                 ) {
@@ -548,8 +542,7 @@ class GenerateTypeCommand extends Command
                                         );
                                         $this->info("> > > Native method return generic json api collection resource => Added method return(s) without object type");
                                     }
-                                }
-                                else {
+                                } else {
 
                                     $resourceClass = new ReflectionClass($classFullname);
 
@@ -565,6 +558,7 @@ class GenerateTypeCommand extends Command
                                 }
 
                             }
+
                             else if (class_exists($methodTypeName)) {
                                 $methodAllowNull = $methodType->allowsNull();
                                 if ($methodAllowNull) {
@@ -605,14 +599,17 @@ class GenerateTypeCommand extends Command
                                 }
 
                             }
+
                             else if (isset(self::TYPE_MAP[$methodTypeName])) {
                                 $this->info("> > > Native method returns non-class data type");
 
                                 $methodSchemas[] = new CustomSchema(self::TYPE_MAP[$methodTypeName]);
                             }
+
                             else if ($methodTypeName === 'void' || $methodTypeName === 'never') {
                                 $this->info("> > > Native method doesnt return anything");
                             }
+
                             else {
                                 throw new Exception("Cannot understand route method return type {$route->getName()}-{$route->getActionMethod()}");
                             }

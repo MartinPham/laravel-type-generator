@@ -60,17 +60,21 @@ class DocBlockHelper
 
             $classFullname = ClassHelper::getClassFullname($name, $classReflection);
 
-            if (is_subclass_of($classFullname, 'DateTimeInterface')) {
+            if (ClassHelper::isKindOf($classFullname, 'DateTimeInterface')) {
                 return new StringSchema(
                     format: "date-time",
                     nullable: $nullable
                 );
-            } else if ($classFullname === 'Illuminate\Http\UploadedFile') {
+            }
+
+            else if ($classFullname === 'Illuminate\Http\UploadedFile') {
                 return new StringSchema(
                     format: "binary",
                     nullable: $nullable
                 );
-            } else if (is_subclass_of($classFullname, 'TiMacDonald\JsonApi\JsonApiResource')) {
+            }
+
+            else if (ClassHelper::isKindOf($classFullname, 'TiMacDonald\JsonApi\JsonApiResource')) {
                 $resourceClass = new ReflectionClass($classFullname);
 
                 $toAttributesMethod = $resourceClass->getMethod('toAttributes');
@@ -165,9 +169,11 @@ class DocBlockHelper
                     ref: $name,
                     nullable: $nullable
                 );
-            } else if (
-                is_subclass_of($classFullname, 'Illuminate\Http\Resources\Json\JsonResource')
-                || is_subclass_of($classFullname, 'Illuminate\Http\Resources\Json\ResourceCollection')
+            }
+
+            else if (
+                ClassHelper::isKindOf($classFullname, 'Illuminate\Http\Resources\Json\JsonResource')
+                || ClassHelper::isKindOf($classFullname, 'Illuminate\Http\Resources\Json\ResourceCollection')
             ) {
                 $resourceClass = new ReflectionClass($classFullname);
                 $toArrayMethod = $resourceClass->getMethod('toArray');
@@ -313,19 +319,22 @@ class DocBlockHelper
             }
 
             if (
-                is_subclass_of($collectionTypeClass, 'Illuminate\Http\Resources\Json\JsonResource')
-                || $collectionTypeClass === 'Illuminate\Http\Resources\Json\JsonResource'
+                ClassHelper::isKindOf($collectionTypeClass, 'Illuminate\Http\Resources\Json\JsonResource')
             ) {
                 return self::parseTagType($innerType, false, $classReflection, $schemaHelper);
-            } else if (
-                is_subclass_of($collectionTypeClass, 'Illuminate\Support\Collection')
-                || $collectionTypeClass === 'Spatie\LaravelData\DataCollection'
-                || $collectionTypeClass === 'Illuminate\Http\Resources\Json\ResourceCollection'
+            }
+
+            else if (
+                ClassHelper::isKindOf($collectionTypeClass, 'Illuminate\Support\Collection')
+                || ClassHelper::isKindOf($collectionTypeClass, 'Spatie\LaravelData\DataCollection')
+                || ClassHelper::isKindOf($collectionTypeClass, 'Illuminate\Http\Resources\Json\ResourceCollection')
             ) {
                 return new ArraySchema(
                     items: self::parseTagType($innerType, false, $classReflection, $schemaHelper)
                 );
-            } else if (isset(ModelHelper::RELATION_TYPE[$collectionTypeClass])) {
+            }
+
+            else if (isset(ModelHelper::RELATION_TYPE[$collectionTypeClass])) {
                 $mapped = ModelHelper::RELATION_TYPE[$collectionTypeClass];
 
                 if ($mapped === 'single') {
@@ -335,7 +344,9 @@ class DocBlockHelper
                         items: self::parseTagType($innerType, false, $classReflection, $schemaHelper)
                     );
                 }
-            } else if ($collectionTypeClass === 'Spatie\LaravelData\PaginatedDataCollection') {
+            }
+
+            else if ($collectionTypeClass === 'Spatie\LaravelData\PaginatedDataCollection') {
                 /** @var Object_ $innerType */
                 $schemaName = $innerType->getFqsen()->getName() . '_DataPaginator';
                 $schemaHelper->registerSchema($schemaName, function () use ($schemaName, $innerType, $schemaHelper, $classReflection) {
@@ -352,7 +363,9 @@ class DocBlockHelper
                     ref: $schemaName,
                     nullable: false
                 );
-            } else if (is_subclass_of($collectionTypeClass, 'Illuminate\Contracts\Pagination\LengthAwarePaginator') || $collectionTypeClass === 'Illuminate\Contracts\Pagination\LengthAwarePaginator') {
+            }
+
+            else if (ClassHelper::isKindOf($collectionTypeClass, 'Illuminate\Contracts\Pagination\LengthAwarePaginator') ) {
                 /** @var Object_ $innerType */
                 $schemaName = $innerType->getFqsen()->getName() . '_LengthAwarePaginator';
                 $schemaHelper->registerSchema($schemaName, function () use ($schemaName, $innerType, $schemaHelper, $classReflection) {
@@ -369,7 +382,9 @@ class DocBlockHelper
                     ref: $schemaName,
                     nullable: false
                 );
-            } else if (is_subclass_of($collectionTypeClass, 'Illuminate\Contracts\Pagination\Paginator') || $collectionTypeClass === 'Illuminate\Contracts\Pagination\Paginator') {
+            }
+
+            else if (ClassHelper::isKindOf($collectionTypeClass, 'Illuminate\Contracts\Pagination\Paginator')) {
                 /** @var Object_ $innerType */
                 $schemaName = $innerType->getFqsen()->getName() . '_Paginator';
                 $schemaHelper->registerSchema($schemaName, function () use ($schemaName, $innerType, $schemaHelper, $classReflection) {
@@ -386,7 +401,9 @@ class DocBlockHelper
                     ref: $schemaName,
                     nullable: false
                 );
-            } else if ($collectionTypeClass === 'Spatie\LaravelData\CursorPaginatedDataCollection') {
+            }
+
+            else if ($collectionTypeClass === 'Spatie\LaravelData\CursorPaginatedDataCollection') {
                 /** @var Object_ $innerType */
                 $schemaName = $innerType->getFqsen()->getName() . '_CursorPaginator';
                 $schemaHelper->registerSchema($schemaName, function () use ($schemaName, $innerType, $schemaHelper, $classReflection) {
@@ -403,7 +420,9 @@ class DocBlockHelper
                     ref: $schemaName,
                     nullable: false
                 );
-            } else if (is_subclass_of($collectionTypeClass, 'Illuminate\Contracts\Pagination\CursorPaginator') || $collectionTypeClass === 'Illuminate\Contracts\Pagination\CursorPaginator') {
+            }
+
+            else if (ClassHelper::isKindOf($collectionTypeClass, 'Illuminate\Contracts\Pagination\CursorPaginator') ) {
                 /** @var Object_ $innerType */
                 $schemaName = $innerType->getFqsen()->getName() . '_CursorPaginator';
                 $schemaHelper->registerSchema($schemaName, function () use ($schemaName, $innerType, $schemaHelper, $classReflection) {
