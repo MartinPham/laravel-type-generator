@@ -1,0 +1,55 @@
+{
+    "name": "martinpham/laravel-type-generator",
+    "description": "Generate types from Laravel routes and Laravel Eloquent/Laravel Data objects.",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "MartinPham\\TypeGenerator\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "MartinPham\\TypeGenerator\\TypeServiceProvider"
+            ]
+        }
+    },
+    "authors": [
+        {
+            "name": "Martin Pham",
+            "email": "i@mph.am"
+        }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "scripts": {
+        "format": [
+            "@php ./vendor/friendsofphp/php-cs-fixer/php-cs-fixer fix --verbose --config=./php-cs.php --path-mode=intersection . --ansi"
+        ],
+        "format-dry": [
+            "@php ./vendor/friendsofphp/php-cs-fixer/php-cs-fixer fix --dry-run --verbose --config=./php-cs.php --path-mode=intersection . --ansi"
+        ],
+        "larastan": [
+            "vendor/bin/phpstan analyse"
+        ],
+        "test": [
+            "vendor/bin/pest"
+        ]
+    },
+    "require": {
+        "laravel/framework": "^8|^9|^10|^11|^12",
+        "phpdocumentor/reflection-docblock": "^5.4"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.59",
+        "nunomaduro/larastan": "^2.9",
+        "orchestra/testbench": "^9",
+        "pestphp/pest": "^v2.34"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    }
+}
