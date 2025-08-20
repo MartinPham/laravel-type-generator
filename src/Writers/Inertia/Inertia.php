@@ -144,7 +144,7 @@ class Inertia implements Writer
     private function convertToTypeScript($schema): string
     {
         // Handle nullable types
-        $nullable = $schema->nullable ?? false;
+        $nullable = !(@$schema->nullable === null || @$schema->nullable === false);
         $nullSuffix = $nullable ? ' | null' : '';
 
         // Handle references
@@ -181,7 +181,7 @@ class Inertia implements Writer
                 $props = [];
                 foreach ($schema->properties as $propName => $propSchema) {
                     $propType = $this->convertToTypeScript($propSchema);
-                    $isRequired = @$propSchema->nullable;
+                    $isRequired = @$propSchema->nullable === null || @$propSchema->nullable === false;
                     $optional = $isRequired ? '' : '?';
                     $props[] = "{$propName}{$optional}: {$propType}";
                 }
