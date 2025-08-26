@@ -151,8 +151,11 @@ class GenerateTypeCommand extends Command
 
                     if (is_string($uses)) {
                         $classReflection = new ReflectionClass($route->getController());
-                        $methodReflection = $classReflection->getMethod($route->getActionMethod());
-
+                        if ($classReflection->hasMethod('__invoke')) {
+                            $methodReflection = $classReflection->getMethod('__invoke');
+                        } else {
+                            $methodReflection = $classReflection->getMethod($route->getActionMethod());
+                        }
 
                         $classDocs = $classReflection->getDocComment();
 
