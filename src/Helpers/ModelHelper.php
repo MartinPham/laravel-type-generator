@@ -194,8 +194,8 @@ class ModelHelper
                     );
                     break;
 
-                default:
-                    throw new Exception("Cannot understand model structure - $classFullname::$columnName (type $columnType -> casted: $columnCastedType -> mapped: $columnMappedType)");
+//                default:
+//                    throw new Exception("Cannot understand model structure - $classFullname::$columnName (type $columnType -> casted: $columnCastedType -> mapped: $columnMappedType)");
             }
         }
 
