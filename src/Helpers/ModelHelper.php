@@ -233,6 +233,9 @@ class ModelHelper
                         $returnTagType = $returnTag->getType();
                         if ($returnTagType instanceof Collection) {
                             $returnTagTypeClassname = $returnTagType->getFqsen()->getName();
+                            if (str_starts_with($returnTagTypeClassname, '$')) {
+                                continue;
+                            }
                             $returnTagTypeClassFullname = ClassHelper::getClassFullname($returnTagTypeClassname, $classReflection);
 
                             if (isset(self::RELATION_TYPE[$returnTagTypeClassFullname])) {
