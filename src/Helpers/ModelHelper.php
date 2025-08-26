@@ -267,6 +267,9 @@ class ModelHelper
                                 $value = CodeHelper::extractArgumentValue($arg->value);
                                 if ($index === 0) {
                                     $relatedModel = $value;
+                                    if (str_starts_with($relatedModel, '$')) {
+                                        continue;
+                                    }
                                     $relatedModelFullClassname = ClassHelper::getClassFullname($relatedModel, $classReflection);
                                     $parts = explode('\\', $relatedModelFullClassname);
                                     $relatedModelClassname = $parts[count($parts) - 1];
