@@ -129,6 +129,8 @@ class ModelHelper
             'char' => 'string',
             'integer' => 'int',
             'int' => 'int',
+            'int8' => 'int',
+            'int4' => 'int',
             'bigint' => 'int',
             'smallint' => 'int',
             'tinyint' => 'int',
