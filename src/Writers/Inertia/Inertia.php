@@ -127,12 +127,23 @@ class Inertia implements Writer
         }
 
         $this->processedSchemas[] = $name;
-        $output = "export type {$name} = {\n";
+
+        $responseTypeName = str_replace('.', '_', $name);
+        $responseTypeName = str_replace('-', '_', $responseTypeName);
+        $responseTypeName = str_replace('\\', '_', $responseTypeName);
+
+        $output = "export type {$responseTypeName} = {\n";
 
         if (isset($schema->properties)) {
             foreach ($schema->properties as $propName => $propSchema) {
                 $optional = (@$propSchema->nullable === null || @$propSchema->nullable === false) ? '' : '?';
                 $tsType = $this->convertToTypeScript($propSchema);
+
+
+                $tsType = str_replace('.', '_', $tsType);
+                $tsType = str_replace('-', '_', $tsType);
+                $tsType = str_replace('\\', '_', $tsType);
+
                 $output .= "  {$propName}{$optional}: {$tsType};\n";
             }
         }
