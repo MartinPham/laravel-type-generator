@@ -224,6 +224,7 @@ class Inertia implements Writer
             foreach ($operation->responses as $statusCode => $response) {
                 if ($statusCode == 200 || $statusCode == 'default') {
                     $responseTypeName = str_replace('.', '_', $operationId);
+                    $responseTypeName = str_replace('-', '_', $responseTypeName);
                     $parts = explode('_', $responseTypeName);
                     $parts = array_map(fn ($part) => ucwords($part), $parts);
                     $responseTypeName = implode('', $parts);
